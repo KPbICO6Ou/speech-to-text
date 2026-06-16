@@ -15,7 +15,7 @@ services:
     environment:
       TZ: America/New_York
       STT_HOST: "0.0.0.0"
-      STT_PORT: "5099"
+      STT_PORT: "${STT_PORT:-5099}"
       STT_POOL_SIZE: "1"
       STT_DEBUG: "false"
       MAX_CONTENT_LENGTH_MB: "10"
@@ -29,7 +29,7 @@ services:
       # Force CUDA backend.
       COMPUTE_TYPE: "cuda"
     ports:
-      - "5099:5099"
+      - "${STT_PORT:-5099}:${STT_PORT:-5099}"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
@@ -61,7 +61,7 @@ services:
         max-file: "3"
     entrypoint: ["/bin/sh", "-c"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5099/api/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${STT_PORT:-5099}/api/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
