@@ -35,6 +35,16 @@ Transcribes uploaded audio.
 - `multipart/form-data` with field `file`
 - or raw binary body (`audio/*`)
 
+Optional `language` (query string `?language=ru` or a multipart form field)
+overrides the server `WHISPER_LANGUAGE` default for that request; `auto`
+autodetects. Absent or empty → the server default is used. Invalid values
+return `400 { "error": "Invalid language" }`.
+
+```bash
+curl -X POST 'http://localhost:5099/api/stt?language=ru' \
+  -H 'Content-Type: audio/wav' --data-binary @speech.wav
+```
+
 Example success response:
 
 ```json

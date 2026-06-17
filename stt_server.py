@@ -15,6 +15,7 @@ import io
 import logging
 import os
 import queue
+import re
 import time
 import traceback
 import uuid
@@ -29,8 +30,11 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 load_dotenv(find_dotenv())
 
-# Local import — stt.py must NOT be modified
+# Local import — language is overridable per request via get_stt_bio(language=...)
 import libs.stt as stt  # noqa: E402  (must follow load_dotenv)
+
+# Allowed per-request language: ISO code (2-3 letters) or "auto" (autodetect).
+LANGUAGE_RE = re.compile(r"^[a-z]{2,3}$")
 
 TRUE = ("1", "true", "yes", "on", "enabled")
 # Logging
@@ -238,7 +242,9 @@ def transcribe():
     Transcribe an uploaded audio file.
 
     Accepts multipart/form-data with field ``file`` (any format pydub supports)
-    or raw binary body with Content-Type audio/*.
+    or raw binary body with Content-Type audio/*. An optional ``language``
+    (query string or form field) overrides the server WHISPER_LANGUAGE default
+    for this request; ``auto`` autodetects.
 
     Returns::
         {"text": "transcribed text", "elapsed": 1.23}
@@ -258,6 +264,15 @@ def transcribe():
 
     bio.seek(0)
     size_kb = len(bio.getvalue()) // 1024
+
+    # Optional per-request language (query string ?language= or a form field),
+    # read after the body so form parsing does not consume the audio stream.
+    # Empty/absent → server WHISPER_LANGUAGE default; "auto" → autodetect.
+    language = request.args.get("language") or request.form.get("language")
+    if language is not None:
+        language = language.strip().lower() or None
+        if language and language != "auto" and not LANGUAGE_RE.match(language):
+            return jsonify({"error": "Invalid language", "request_id": get_req_id()}), 400
 
     # Convert to WAV via pydub (handles mp3, wav, ogg, etc.)
     # Export as 16kHz mono 16-bit PCM — matches Whisper's expected format,
@@ -296,7 +311,7 @@ def transcribe():
 
     # Transcribe
     try:
-        text = stt.get_stt_bio(wav_bio, model=model)
+        text = stt.get_stt_bio(wav_bio, model=model, language=language)
         elapsed = time.monotonic() - t0
         logger.info(
             "[%s] STT %s (%dkb) - %d chars (%.2fs)",
