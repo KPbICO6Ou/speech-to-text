@@ -204,16 +204,15 @@ def handle_exception(e):
 
 @app.after_request
 def after_request(resp):
-    elapsed_ms = int((time.monotonic() - getattr(g, "request_start", time.monotonic())) * 1000)
+    elapsed = time.monotonic() - getattr(g, "request_start", time.monotonic())
     log_fn = logger.debug if request.path == "/api/health" else logger.info
     log_fn(
-        "[%s] %s %s: %s %s (%dms)",
+        "[%s] %s %s: %s (%.2fs)",
         get_req_id(),
         request.method,
         request.path,
-        resp.status_code,
         resp.status,
-        elapsed_ms,
+        elapsed,
     )
     return resp
 
@@ -300,7 +299,7 @@ def transcribe():
         text = stt.get_stt_bio(wav_bio, model=model)
         elapsed = time.monotonic() - t0
         logger.info(
-            "[%s] STT %s (%dkb) → %d chars (%.2fs)",
+            "[%s] STT %s (%dkb) - %d chars (%.2fs)",
             get_req_id(),
             filename,
             size_kb,
