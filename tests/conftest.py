@@ -20,7 +20,7 @@ def _fake_get_model():
     return object()
 
 
-def _fake_get_stt_bio(bio, model=None, device=None):
+def _fake_get_stt_bio(bio, model=None, device=None, language=None):
     return "stub transcription"
 
 

@@ -83,6 +83,7 @@ def get_stt_bio(
     bio: io.BytesIO = io.BytesIO(),
     model: Optional[whisper.Whisper] = None,
     device: Optional[str] = COMPUTE_TYPE,
+    language: Optional[str] = None,
 ) -> str:
     if not model:
         if device == "auto":
@@ -111,13 +112,19 @@ def get_stt_bio(
     if np.abs(data).max() > 0:
         data = data / np.abs(data).max()
 
+    # Per-request language override; None falls back to the WHISPER_LANGUAGE
+    # default, and "auto"/"" means autodetect (language=None passed to Whisper).
+    lang = WHISPER_LANGUAGE if language is None else language
+    lang = (lang or "").strip().lower()
+    lang = None if lang in ("", "auto") else lang
+
     # Force deterministic decoding so repeated requests for the same input
     # produce stable output.
     torch.manual_seed(0)
     np.random.seed(0)
     result = model.transcribe(
         audio=data,
-        language=WHISPER_LANGUAGE,
+        language=lang,
         task="transcribe",
         temperature=0.0,
         beam_size=1,
@@ -129,7 +136,10 @@ def get_stt_bio(
 
 
 def get_stt_filename(
-    filename: str, model: Optional[whisper.Whisper] = None, device: str = COMPUTE_TYPE
+    filename: str,
+    model: Optional[whisper.Whisper] = None,
+    device: str = COMPUTE_TYPE,
+    language: Optional[str] = None,
 ) -> str:
     """Transcribe audio using Whisper model."""
     if not os.path.exists(filename):
@@ -143,7 +153,7 @@ def get_stt_filename(
     bio = io.BytesIO()
     audio.export(bio, format="wav")
     bio.seek(0)
-    return get_stt_bio(bio, model=model, device=device)
+    return get_stt_bio(bio, model=model, device=device, language=language)
 
 
 def main():
