@@ -1,99 +1,136 @@
-# STT Server
+## speech-to-text: a self-hosted Whisper transcription server
 
-`stt_server.py` is an HTTP speech-to-text service built with Flask and served by uvicorn.
-The BEST Server model for English is `turbo`
+[![CI](https://github.com/wachawo/speech-to-text/actions/workflows/ci.yml/badge.svg)](https://github.com/wachawo/speech-to-text/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/wachawo/speech-to-text/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 
-Backend: **openai-whisper**.
+**[English](https://github.com/wachawo/speech-to-text/blob/main/README.md)** | [Español](https://github.com/wachawo/speech-to-text/blob/main/docs/README_ES.md) | [Português](https://github.com/wachawo/speech-to-text/blob/main/docs/README_PT.md) | [Français](https://github.com/wachawo/speech-to-text/blob/main/docs/README_FR.md) | [Deutsch](https://github.com/wachawo/speech-to-text/blob/main/docs/README_DE.md) | [Italiano](https://github.com/wachawo/speech-to-text/blob/main/docs/README_IT.md) | [Русский](https://github.com/wachawo/speech-to-text/blob/main/docs/README_RU.md) | [中文](https://github.com/wachawo/speech-to-text/blob/main/docs/README_ZH.md) | [日本語](https://github.com/wachawo/speech-to-text/blob/main/docs/README_JA.md) | [हिन्दी](https://github.com/wachawo/speech-to-text/blob/main/docs/README_HI.md) | [한국어](https://github.com/wachawo/speech-to-text/blob/main/docs/README_KR.md)
 
-## What the server does
+`speech-to-text` turns audio into text with [openai-whisper](https://github.com/openai/whisper), wrapped in a small HTTP service you run yourself. You send an audio file, you get the transcription back. No external API, no per-minute billing, and your audio never leaves your machine.
 
-- Loads a pool of Whisper model instances at startup (`STT_POOL_SIZE`)
-- Accepts audio files via HTTP and returns transcription text
-- Converts input audio to WAV before inference
-- Exposes a health endpoint with model pool status
+The project fits local use, batch transcription, and running your own STT server on the network.
 
-## Endpoints
+* **A ready-to-use HTTP server.** Flask served by uvicorn loads Whisper at startup and answers requests from other machines on your local network.
+* **Safe under concurrency.** The server keeps a pool of pre-loaded Whisper instances, so several requests are transcribed in parallel without reloading the model.
+* **CPU or GPU, same code.** The backend is selected by environment and which Docker image you build. A CUDA card speeds inference up, but everything also runs on CPU.
+* **A CLI client is included.** `stt_client.py` posts local files to the server and prints the result.
 
-### `GET /api/health`
+### Models
 
-Returns server status and model availability.
+Whisper ships several model sizes. Bigger models are more accurate and slower; smaller ones are fast and light.
 
-Example response:
+| Model      | Parameters | VRAM    | Languages       | Good for                                      |
+| ---------- | ---------- | ------- | --------------- | --------------------------------------------- |
+| `tiny`     | 39M        | ~1 GB   | multilingual    | quick drafts on weak hardware                 |
+| `base`     | 74M        | ~1 GB   | multilingual    | a light general-purpose default               |
+| `small`    | 244M       | ~2 GB   | multilingual    | a good accuracy / speed balance               |
+| `medium`   | 769M       | ~5 GB   | multilingual    | higher accuracy when you can spare the memory |
+| `turbo`    | 809M       | ~6 GB   | multilingual    | near-`large` accuracy, much faster            |
+| `large`    | 1550M      | ~10 GB  | multilingual    | best quality, needs a GPU                     |
 
-```json
-{
-  "status": "ok",
-  "pool_size": 4,
-  "available": 3
-}
-```
+English-only variants (`tiny.en`, `base.en`, `small.en`, `medium.en`) are a bit more accurate on English audio. The default is `turbo`, which is the best all-round pick for English on a GPU.
 
-### `POST /api/stt`
+### Quick start (Docker)
 
-Transcribes uploaded audio.
-
-- `multipart/form-data` with field `file`
-- or raw binary body (`audio/*`)
-
-Optional `language` (query string `?language=ru` or a multipart form field)
-overrides the server `WHISPER_LANGUAGE` default for that request; `auto`
-autodetects. Absent or empty → the server default is used. Invalid values
-return `400 { "error": "Invalid language" }`.
+The easiest way to run the server is with Docker. Model files are cached in `./models` on the host, so they survive container rebuilds.
 
 ```bash
-curl -X POST 'http://localhost:5099/api/stt?language=ru' \
-  -H 'Content-Type: audio/wav' --data-binary @speech.wav
+git clone https://github.com/wachawo/speech-to-text.git
+cd speech-to-text
+
+docker compose up --build                              # GPU (CUDA 13.0)
+docker compose -f docker-compose-cpu.yml up --build    # CPU only
 ```
 
-Example success response:
+The GPU build needs `nvidia-container-toolkit` on the host. The first run downloads the Whisper model into `./models`.
+
+### HTTP API
+
+Once the server is up, check its status and send an audio file for transcription.
+
+```bash
+curl localhost:5099/api/health
+
+curl -X POST localhost:5099/api/stt \
+  -F file=@speech.mp3
+
+curl -X POST 'localhost:5099/api/stt?language=ru' \
+  -H 'Content-Type: audio/wav' \
+  --data-binary @speech.wav
+```
+
+`GET /api/health` returns the pool status. `available` dropping to 0 means every model is currently in flight:
 
 ```json
-{
-  "text": "transcribed text",
-  "elapsed": 1.23
-}
+{ "status": "ok", "pool_size": 4, "available": 3 }
 ```
 
-Error responses are uniform — `error` carries a generic category, `request_id`
-correlates the response to log entries (search the server log by it for full
-exception details):
+`POST /api/stt` accepts a `multipart/form-data` field named `file`, or a raw `audio/*` body. An optional `language` (query string or form field) overrides the server default for that request; `auto` autodetects. On success it returns the text and the elapsed seconds:
+
+```json
+{ "text": "transcribed text", "elapsed": 1.23 }
+```
+
+Errors are uniform: `error` carries a generic category and `request_id` correlates the response with the server log, where the full exception is recorded.
 
 ```json
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-## Environment variables
+When `STT_TOKENS` is set, every `POST /api/stt` must carry `Authorization: Bearer <token>`; `GET /api/health` stays open so healthchecks keep working.
 
-Server:
+### CLI client
 
-- `STT_HOST` (default: `0.0.0.0`)
-- `STT_PORT` (default: `5099`)
-- `STT_POOL_SIZE` (default: `8`)
-- `STT_DEBUG` (default: `false`)
-- `WHISPER_MODEL` (default: `turbo`)
-- `WHISPER_LANGUAGE` (default: `en`)
-- `WHISPER_DOWNLOAD_ROOT` (default: `models`; in Docker: `/opt/models`)
-- `STT_TOKENS` (default: empty) — comma-separated list of valid static tokens.
-  When empty, **auth is disabled** and all requests are accepted. When set, every
-  `POST /api/stt` must carry `Authorization: Bearer <token>`; missing or invalid
-  token returns `401 {"error": "Unauthorized", "request_id": "..."}`.
-  `GET /api/health` is always reachable without a token (so docker-compose
-  healthchecks keep working).
+`stt_client.py` is a small client for working with and testing the server. It reads the server address and token from `STT_URL` and `STT_TOKEN`.
 
-Client (`stt_client.py`):
+```bash
+python3 stt_client.py speech.mp3
+python3 stt_client.py file1.wav file2.mp3 file3.ogg
+```
 
-- `STT_URL` (default: `http://localhost:5099`)
-- `STT_TOKEN` (default: empty) — single token sent as `Authorization: Bearer
-  <token>` to the server. Leave empty when the server has no `STT_TOKENS`.
+### Environment variables
 
-Model files are stored in `./models` on host via the `./models:/opt/models` mount in `docker-compose.yml`.
+`.env` is loaded by both the server and the client through `python-dotenv`.
 
-## Local commands
+| Variable                | Default                 | Purpose                                            |
+| ----------------------- | ----------------------- | -------------------------------------------------- |
+| `STT_HOST`              | `0.0.0.0`               | server bind address                                |
+| `STT_PORT`              | `5099`                  | server port                                        |
+| `STT_POOL_SIZE`         | `8`                     | number of pre-loaded Whisper instances             |
+| `STT_TOKENS`            | (empty)                 | comma-separated valid tokens; empty disables auth  |
+| `STT_DEBUG`             | `false`                 | Flask debug mode                                    |
+| `WHISPER_MODEL`         | `turbo`                 | Whisper model name (e.g. `small.en`, `turbo`)      |
+| `WHISPER_LANGUAGE`      | `en`                    | default transcription language                     |
+| `WHISPER_DOWNLOAD_ROOT` | `models`                | model cache directory (`/opt/models` in Docker)    |
+| `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, or `auto`                            |
+| `GUNICORN_WORKERS`      | (gunicorn only)         | number of worker processes                         |
+| `STT_URL`               | `http://localhost:5099` | client: server base URL                            |
+| `STT_TOKEN`             | (empty)                 | client: bearer token sent to the server            |
 
-Install Python dependencies into whichever environment you prefer
-(`requirements.txt` for runtime, `requirements-dev.txt` for runtime + dev/test
-tools). System packages `ffmpeg` and `libsndfile1` must be present. The
-Makefile invokes `python3`, `gunicorn`, `pytest` and `pre-commit` from `PATH`.
+### Project structure
+
+```text
+speech-to-text/
+├── stt_server.py        # Flask + uvicorn HTTP service, model pool, entry point
+├── stt_client.py        # CLI client that posts files to the server
+├── libs/stt.py          # Whisper wrapper (vendored, not modified)
+├── gu.py                # Gunicorn hooks
+├── Dockerfile           # GPU build (CUDA 13.0)
+├── Dockerfile-cpu       # CPU build
+├── docs/                # README translations
+└── tests/               # pytest tests, no model downloads and no GPU
+```
+
+### Development
+
+System packages `ffmpeg` and `libsndfile1` must be present. Install the runtime and dev dependencies:
+
+```bash
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+The Makefile wraps the common tasks:
 
 ```bash
 make run            # foreground: python3 stt_server.py
@@ -104,33 +141,8 @@ make test           # pytest
 make lint           # pre-commit (black + ruff)
 ```
 
-`requirements-dev.txt` references `requirements.txt` and adds `pytest`,
-`pre-commit`, `black`, `ruff`. There is no separate `requirements-test.txt`.
+The test suite stubs the Whisper backend, so it covers the HTTP layer (request_id, error categories, model pool semantics) and runs in seconds without downloading a model or needing a GPU.
 
-To install pre-commit hooks (so `git commit` runs black + ruff):
+### License
 
-```bash
-pre-commit install
-```
-
-## Docker
-
-Both Dockerfiles use `uv` to install Python dependencies (much faster than pip).
-
-```bash
-docker compose up --build                              # GPU (CUDA 13.0)
-docker compose -f docker-compose-cpu.yml up --build    # CPU
-```
-
-GPU build needs `nvidia-container-toolkit` on the host.
-
-## Continuous integration
-
-`.github/workflows/ci.yml` runs two jobs on `push` and `pull_request` to `main`:
-
-- **lint** — `pre-commit run --all-files` (black + ruff).
-- **test** — installs `requirements-dev.txt` via `uv` and runs `pytest`.
-
-Test suite stubs `libs.stt` so it doesn't exercise the actual Whisper backend —
-it covers the HTTP layer (request_id, error categories, leak regression, model
-pool semantics) and runs in seconds.
+[MIT](LICENSE)
