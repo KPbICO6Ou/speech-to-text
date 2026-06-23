@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+Размер загрузки ограничен значением `MAX_CONTENT_LENGTH_MB` (по умолчанию 10 МБ); большее тело возвращает `413`.
+
 Ошибки единообразны: `error` несёт обобщённую категорию, а `request_id` связывает ответ с записью в логе сервера, где зафиксировано полное исключение.
 
 ```json
@@ -99,11 +101,15 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `STT_POOL_SIZE`         | `8`                     | число предварительно загруженных экземпляров Whisper|
 | `STT_TOKENS`            | (пусто)                 | допустимые токены через запятую; пусто отключает авторизацию |
 | `STT_DEBUG`             | `false`                 | режим отладки Flask                                 |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | максимальный размер загрузки в МБ; большее тело возвращает `413` |
+| `CORS_ORIGINS`          | `*`                     | разрешённые источники CORS: `*` или список через запятую |
+| `GUNICORN_WORKERS`      | `4`                     | рабочие процессы (только gunicorn)                  |
+| `LOG_LEVEL`             | `INFO`                  | уровень логирования                                 |
+| `LOG_ACCESS`            | `false`                 | логировать строки доступа uvicorn                   |
 | `WHISPER_MODEL`         | `turbo`                 | имя модели Whisper (например, `small.en`, `turbo`)  |
 | `WHISPER_LANGUAGE`      | `en`                    | язык транскрипции по умолчанию                      |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | каталог кеша моделей (`/opt/models` в Docker)       |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` или `auto`                             |
-| `GUNICORN_WORKERS`      | (только gunicorn)       | число рабочих процессов                             |
 | `STT_URL`               | `http://localhost:5099` | клиент: базовый URL сервера                         |
 | `STT_TOKEN`             | (пусто)                 | клиент: bearer-токен, отправляемый на сервер        |
 

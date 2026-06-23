@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+업로드는 `MAX_CONTENT_LENGTH_MB`(기본 10 MB)로 제한되며, 더 큰 본문은 `413`을 반환합니다.
+
 오류는 형식이 일관됩니다. `error`는 일반적인 범주를 담고, `request_id`는 전체 예외가 기록된 서버 로그와 응답을 연결합니다.
 
 ```json
@@ -99,11 +101,15 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `STT_POOL_SIZE`         | `8`                     | 미리 로드되는 Whisper 인스턴스 수                  |
 | `STT_TOKENS`            | (비어 있음)             | 쉼표로 구분된 유효 토큰, 비어 있으면 인증 비활성화 |
 | `STT_DEBUG`             | `false`                 | Flask 디버그 모드                                  |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | 최대 업로드 크기(MB), 더 큰 본문은 `413` 반환      |
+| `CORS_ORIGINS`          | `*`                     | 허용되는 CORS 출처: `*` 또는 쉼표로 구분된 목록    |
+| `GUNICORN_WORKERS`      | `4`                     | 워커 프로세스 수(gunicorn 전용)                    |
+| `LOG_LEVEL`             | `INFO`                  | 로깅 레벨                                          |
+| `LOG_ACCESS`            | `false`                 | uvicorn 액세스 로그 기록                           |
 | `WHISPER_MODEL`         | `turbo`                 | Whisper 모델 이름(예: `small.en`, `turbo`)         |
 | `WHISPER_LANGUAGE`      | `en`                    | 기본 전사 언어                                     |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 모델 캐시 디렉터리(Docker에서는 `/opt/models`)     |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, 또는 `auto`                         |
-| `GUNICORN_WORKERS`      | (gunicorn 전용)         | 워커 프로세스 수                                   |
 | `STT_URL`               | `http://localhost:5099` | 클라이언트: 서버 기본 URL                          |
 | `STT_TOKEN`             | (비어 있음)             | 클라이언트: 서버로 전송되는 베어러 토큰            |
 

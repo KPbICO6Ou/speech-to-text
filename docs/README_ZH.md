@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+上传大小上限为 `MAX_CONTENT_LENGTH_MB`（默认 10 MB）；更大的请求体返回 `413`。
+
 错误格式统一：`error` 携带一个通用类别，`request_id` 将响应与服务器日志关联起来，完整的异常信息记录在日志中。
 
 ```json
@@ -99,11 +101,15 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `STT_POOL_SIZE`         | `8`                     | 预加载的 Whisper 实例数量                          |
 | `STT_TOKENS`            | （空）                  | 逗号分隔的有效令牌；为空则禁用鉴权                 |
 | `STT_DEBUG`             | `false`                 | Flask 调试模式                                     |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | 最大上传大小（MB）；更大的请求体返回 `413`         |
+| `CORS_ORIGINS`          | `*`                     | 允许的 CORS 来源：`*` 或逗号分隔的列表             |
+| `GUNICORN_WORKERS`      | `4`                     | 工作进程数量（仅 gunicorn）                        |
+| `LOG_LEVEL`             | `INFO`                  | 日志级别                                           |
+| `LOG_ACCESS`            | `false`                 | 记录 uvicorn 访问日志行                            |
 | `WHISPER_MODEL`         | `turbo`                 | Whisper 模型名称（例如 `small.en`、`turbo`）       |
 | `WHISPER_LANGUAGE`      | `en`                    | 默认转录语言                                       |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 模型缓存目录（Docker 中为 `/opt/models`）          |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda` 或 `auto`                            |
-| `GUNICORN_WORKERS`      | （仅 gunicorn）         | 工作进程数量                                       |
 | `STT_URL`               | `http://localhost:5099` | 客户端：服务器基础 URL                             |
 | `STT_TOKEN`             | （空）                  | 客户端：发送给服务器的 bearer 令牌                 |
 

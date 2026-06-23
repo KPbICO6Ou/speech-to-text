@@ -284,6 +284,7 @@ def transcribe():
         channels = audio.split_to_mono()
         if len(channels) > 1:
             audio = AudioSegment.from_mono_audiosegments(*channels)
+        audio = audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
         wav_bio = io.BytesIO()
         audio.export(wav_bio, format="wav")
         wav_bio.seek(0)

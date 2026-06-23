@@ -27,6 +27,9 @@ logs/*.log
 DEPLOY.txt
 ROLLBACK.txt
 
+# Local scratch notes (not tracked)
+notes/
+
 *.md
 !README.md
 !CHANGELOG.md

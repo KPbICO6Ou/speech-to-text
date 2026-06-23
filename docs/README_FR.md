@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+Les envois sont limités à `MAX_CONTENT_LENGTH_MB` (10 Mo par défaut) ; un corps plus grand renvoie `413`.
+
 Les erreurs sont uniformes : `error` porte une catégorie générique et `request_id` met en corrélation la réponse avec le journal du serveur, où l'exception complète est enregistrée.
 
 ```json
@@ -92,20 +94,24 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 
 `.env` est chargé à la fois par le serveur et par le client via `python-dotenv`.
 
-| Variable                | Défaut                  | Rôle                                               |
-| ----------------------- | ----------------------- | -------------------------------------------------- |
-| `STT_HOST`              | `0.0.0.0`               | adresse d'écoute du serveur                         |
-| `STT_PORT`              | `5099`                  | port du serveur                                     |
-| `STT_POOL_SIZE`         | `8`                     | nombre d'instances Whisper préchargées              |
+| Variable                | Défaut                  | Rôle                                                |
+| ----------------------- | ----------------------- | --------------------------------------------------- |
+| `STT_HOST`              | `0.0.0.0`               | adresse d'écoute du serveur                          |
+| `STT_PORT`              | `5099`                  | port du serveur                                      |
+| `STT_POOL_SIZE`         | `8`                     | nombre d'instances Whisper préchargées               |
 | `STT_TOKENS`            | (vide)                  | jetons valides séparés par des virgules ; vide désactive l'authentification |
-| `STT_DEBUG`             | `false`                 | mode debug de Flask                                 |
-| `WHISPER_MODEL`         | `turbo`                 | nom du modèle Whisper (par ex. `small.en`, `turbo`) |
-| `WHISPER_LANGUAGE`      | `en`                    | langue de transcription par défaut                  |
+| `STT_DEBUG`             | `false`                 | mode debug de Flask                                  |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | taille maximale d'envoi en Mo ; un corps plus grand renvoie `413` |
+| `CORS_ORIGINS`          | `*`                     | origines CORS autorisées : `*` ou une liste séparée par des virgules |
+| `GUNICORN_WORKERS`      | `4`                     | processus de travail (gunicorn uniquement)           |
+| `LOG_LEVEL`             | `INFO`                  | niveau de journalisation                             |
+| `LOG_ACCESS`            | `false`                 | journaliser les lignes d'accès uvicorn               |
+| `WHISPER_MODEL`         | `turbo`                 | nom du modèle Whisper (par ex. `small.en`, `turbo`)  |
+| `WHISPER_LANGUAGE`      | `en`                    | langue de transcription par défaut                   |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | répertoire de cache des modèles (`/opt/models` dans Docker) |
-| `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` ou `auto`                             |
-| `GUNICORN_WORKERS`      | (gunicorn uniquement)   | nombre de processus de travail                      |
-| `STT_URL`               | `http://localhost:5099` | client : URL de base du serveur                     |
-| `STT_TOKEN`             | (vide)                  | client : jeton bearer envoyé au serveur             |
+| `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` ou `auto`                              |
+| `STT_URL`               | `http://localhost:5099` | client : URL de base du serveur                      |
+| `STT_TOKEN`             | (vide)                  | client : jeton bearer envoyé au serveur              |
 
 ### Structure du projet
 

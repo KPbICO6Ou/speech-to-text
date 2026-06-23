@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+アップロードは `MAX_CONTENT_LENGTH_MB`（デフォルトで 10 MB）に制限されており、それより大きいボディは `413` を返します。
+
 エラーは統一されています。`error` は一般的なカテゴリを伝え、`request_id` はレスポンスとサーバーログを関連付けます。完全な例外はサーバーログに記録されます。
 
 ```json
@@ -99,11 +101,15 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `STT_POOL_SIZE`         | `8`                     | 事前に読み込む Whisper インスタンスの数               |
 | `STT_TOKENS`            | （空）                   | カンマ区切りの有効なトークン。空にすると認証を無効化     |
 | `STT_DEBUG`             | `false`                 | Flask のデバッグモード                               |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | アップロードの最大サイズ（MB）。これを超えるボディは `413` を返す |
+| `CORS_ORIGINS`          | `*`                     | 許可する CORS オリジン: `*` またはカンマ区切りのリスト   |
+| `GUNICORN_WORKERS`      | `4`                     | ワーカープロセスの数（gunicorn のみ）                 |
+| `LOG_LEVEL`             | `INFO`                  | ログレベル                                          |
+| `LOG_ACCESS`            | `false`                 | uvicorn のアクセスログを記録する                      |
 | `WHISPER_MODEL`         | `turbo`                 | Whisper モデル名（例: `small.en`、`turbo`）          |
 | `WHISPER_LANGUAGE`      | `en`                    | デフォルトの文字起こし言語                            |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | モデルキャッシュのディレクトリ（Docker では `/opt/models`） |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda`、または `auto`                         |
-| `GUNICORN_WORKERS`      | （gunicorn のみ）        | ワーカープロセスの数                                 |
 | `STT_URL`               | `http://localhost:5099` | クライアント: サーバーのベース URL                    |
 | `STT_TOKEN`             | （空）                   | クライアント: サーバーに送るベアラートークン           |
 

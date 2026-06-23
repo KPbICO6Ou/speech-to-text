@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+Gli upload sono limitati a `MAX_CONTENT_LENGTH_MB` (10 MB per impostazione predefinita); un corpo più grande restituisce `413`.
+
 Gli errori sono uniformi: `error` riporta una categoria generica e `request_id` correla la risposta con il log del server, dove viene registrata l'eccezione completa.
 
 ```json
@@ -99,11 +101,15 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `STT_POOL_SIZE`         | `8`                     | numero di istanze Whisper precaricate              |
 | `STT_TOKENS`            | (vuoto)                 | token validi separati da virgola; vuoto disabilita l'autenticazione |
 | `STT_DEBUG`             | `false`                 | modalità debug di Flask                            |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | dimensione massima dell'upload in MB; un corpo più grande restituisce `413` |
+| `CORS_ORIGINS`          | `*`                     | origini CORS consentite: `*` o un elenco separato da virgole |
+| `GUNICORN_WORKERS`      | `4`                     | processi worker (solo gunicorn)                    |
+| `LOG_LEVEL`             | `INFO`                  | livello di logging                                 |
+| `LOG_ACCESS`            | `false`                 | registra le righe di access di uvicorn             |
 | `WHISPER_MODEL`         | `turbo`                 | nome del modello Whisper (es. `small.en`, `turbo`) |
 | `WHISPER_LANGUAGE`      | `en`                    | lingua di trascrizione predefinita                 |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | directory della cache dei modelli (`/opt/models` in Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, oppure `auto`                       |
-| `GUNICORN_WORKERS`      | (solo gunicorn)         | numero di processi worker                          |
 | `STT_URL`               | `http://localhost:5099` | client: URL base del server                        |
 | `STT_TOKEN`             | (vuoto)                 | client: bearer token inviato al server             |
 

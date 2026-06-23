@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+अपलोड `MAX_CONTENT_LENGTH_MB` (डिफ़ॉल्ट रूप से 10 MB) तक सीमित हैं; बड़ा बॉडी `413` लौटाता है।
+
 त्रुटियाँ एकसमान होती हैं: `error` एक सामान्य श्रेणी रखता है और `request_id` प्रतिक्रिया को सर्वर लॉग से सहसंबंधित करता है, जहाँ पूरा अपवाद (exception) दर्ज होता है।
 
 ```json
@@ -92,20 +94,24 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 
 `.env` को सर्वर और क्लाइंट दोनों द्वारा `python-dotenv` के माध्यम से लोड किया जाता है।
 
-| Variable                | Default                 | Purpose                                            |
-| ----------------------- | ----------------------- | -------------------------------------------------- |
-| `STT_HOST`              | `0.0.0.0`               | सर्वर बाइंड पता                                     |
-| `STT_PORT`              | `5099`                  | सर्वर पोर्ट                                         |
-| `STT_POOL_SIZE`         | `8`                     | पहले से लोड किए गए Whisper इंस्टेंस की संख्या        |
+| Variable                | Default                 | उद्देश्य                                             |
+| ----------------------- | ----------------------- | --------------------------------------------------- |
+| `STT_HOST`              | `0.0.0.0`               | सर्वर बाइंड पता                                      |
+| `STT_PORT`              | `5099`                  | सर्वर पोर्ट                                          |
+| `STT_POOL_SIZE`         | `8`                     | पहले से लोड किए गए Whisper इंस्टेंस की संख्या         |
 | `STT_TOKENS`            | (खाली)                  | अल्पविराम से अलग किए गए मान्य टोकन; खाली होने पर auth निष्क्रिय |
-| `STT_DEBUG`             | `false`                 | Flask डिबग मोड                                     |
-| `WHISPER_MODEL`         | `turbo`                 | Whisper मॉडल नाम (जैसे `small.en`, `turbo`)         |
-| `WHISPER_LANGUAGE`      | `en`                    | डिफ़ॉल्ट ट्रांसक्रिप्शन भाषा                         |
-| `WHISPER_DOWNLOAD_ROOT` | `models`                | मॉडल कैश डायरेक्टरी (Docker में `/opt/models`)       |
-| `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, या `auto`                            |
-| `GUNICORN_WORKERS`      | (केवल gunicorn)         | वर्कर प्रक्रियाओं की संख्या                          |
-| `STT_URL`               | `http://localhost:5099` | क्लाइंट: सर्वर बेस URL                              |
-| `STT_TOKEN`             | (खाली)                  | क्लाइंट: सर्वर को भेजा गया बियरर टोकन                |
+| `STT_DEBUG`             | `false`                 | Flask डिबग मोड                                      |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | MB में अधिकतम अपलोड आकार; बड़ा बॉडी `413` लौटाता है   |
+| `CORS_ORIGINS`          | `*`                     | अनुमत CORS मूल: `*` या अल्पविराम से अलग की गई सूची    |
+| `GUNICORN_WORKERS`      | `4`                     | वर्कर प्रक्रियाएँ (केवल gunicorn)                     |
+| `LOG_LEVEL`             | `INFO`                  | लॉगिंग स्तर                                          |
+| `LOG_ACCESS`            | `false`                 | uvicorn एक्सेस लाइनें लॉग करें                       |
+| `WHISPER_MODEL`         | `turbo`                 | Whisper मॉडल नाम (जैसे `small.en`, `turbo`)          |
+| `WHISPER_LANGUAGE`      | `en`                    | डिफ़ॉल्ट ट्रांसक्रिप्शन भाषा                          |
+| `WHISPER_DOWNLOAD_ROOT` | `models`                | मॉडल कैश डायरेक्टरी (Docker में `/opt/models`)        |
+| `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, या `auto`                             |
+| `STT_URL`               | `http://localhost:5099` | क्लाइंट: सर्वर बेस URL                               |
+| `STT_TOKEN`             | (खाली)                  | क्लाइंट: सर्वर को भेजा गया बियरर टोकन                 |
 
 ### प्रोजेक्ट संरचना
 

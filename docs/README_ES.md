@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+Las subidas están limitadas a `MAX_CONTENT_LENGTH_MB` (10 MB por defecto); un cuerpo mayor devuelve `413`.
+
 Los errores son uniformes: `error` lleva una categoría genérica y `request_id` correlaciona la respuesta con el registro del servidor, donde se anota la excepción completa.
 
 ```json
@@ -99,11 +101,15 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `STT_POOL_SIZE`         | `8`                     | número de instancias de Whisper precargadas        |
 | `STT_TOKENS`            | (vacío)                 | tokens válidos separados por comas; vacío desactiva la autenticación |
 | `STT_DEBUG`             | `false`                 | modo de depuración de Flask                        |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | tamaño máximo de subida en MB; un cuerpo mayor devuelve `413` |
+| `CORS_ORIGINS`          | `*`                     | orígenes CORS permitidos: `*` o una lista separada por comas |
+| `GUNICORN_WORKERS`      | `4`                     | procesos de trabajo (solo gunicorn)                |
+| `LOG_LEVEL`             | `INFO`                  | nivel de registro                                  |
+| `LOG_ACCESS`            | `false`                 | registrar las líneas de acceso de uvicorn          |
 | `WHISPER_MODEL`         | `turbo`                 | nombre del modelo Whisper (p. ej. `small.en`, `turbo`) |
 | `WHISPER_LANGUAGE`      | `en`                    | idioma de transcripción por defecto                |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | directorio de caché del modelo (`/opt/models` en Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` o `auto`                             |
-| `GUNICORN_WORKERS`      | (solo gunicorn)         | número de procesos de trabajo                      |
 | `STT_URL`               | `http://localhost:5099` | cliente: URL base del servidor                     |
 | `STT_TOKEN`             | (vacío)                 | cliente: token bearer enviado al servidor          |
 

@@ -71,6 +71,8 @@ O `POST /api/stt` aceita um campo `multipart/form-data` chamado `file`, ou um co
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+Os uploads são limitados a `MAX_CONTENT_LENGTH_MB` (10 MB por padrão); um corpo maior retorna `413`.
+
 Os erros são uniformes: `error` carrega uma categoria genérica e `request_id` correlaciona a resposta com o log do servidor, onde a exceção completa é registrada.
 
 ```json
@@ -99,11 +101,15 @@ O `.env` é carregado tanto pelo servidor quanto pelo cliente através do `pytho
 | `STT_POOL_SIZE`         | `8`                     | número de instâncias do Whisper pré-carregadas      |
 | `STT_TOKENS`            | (vazio)                 | tokens válidos separados por vírgula; vazio desativa a autenticação |
 | `STT_DEBUG`             | `false`                 | modo de depuração do Flask                          |
+| `MAX_CONTENT_LENGTH_MB` | `10`                    | tamanho máximo de upload em MB; um corpo maior retorna `413` |
+| `CORS_ORIGINS`          | `*`                     | origens CORS permitidas: `*` ou uma lista separada por vírgulas |
+| `GUNICORN_WORKERS`      | `4`                     | processos worker (apenas gunicorn)                  |
+| `LOG_LEVEL`             | `INFO`                  | nível de log                                        |
+| `LOG_ACCESS`            | `false`                 | registrar as linhas de acesso do uvicorn           |
 | `WHISPER_MODEL`         | `turbo`                 | nome do modelo Whisper (ex.: `small.en`, `turbo`)   |
 | `WHISPER_LANGUAGE`      | `en`                    | idioma de transcrição padrão                        |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | diretório de cache de modelos (`/opt/models` no Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` ou `auto`                             |
-| `GUNICORN_WORKERS`      | (apenas gunicorn)       | número de processos worker                          |
 | `STT_URL`               | `http://localhost:5099` | cliente: URL base do servidor                       |
 | `STT_TOKEN`             | (vazio)                 | cliente: token bearer enviado ao servidor           |
 
