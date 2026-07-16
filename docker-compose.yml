@@ -59,7 +59,7 @@ services:
       options:
         max-size: "128m"
         max-file: "3"
-    entrypoint: ["/bin/sh", "-c"]
+    entrypoint: ["/opt/entrypoint.sh"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${STT_PORT:-5099}/api/health')"]
       interval: 30s
