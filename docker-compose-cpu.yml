@@ -49,7 +49,7 @@ services:
       options:
         max-size: "128m"
         max-file: "3"
-    entrypoint: ["/bin/sh", "-c"]
+    entrypoint: ["/opt/entrypoint.sh"]
     command:
       - "python3 stt_server.py"
       # - "gunicorn --config gu.py stt_server:app"

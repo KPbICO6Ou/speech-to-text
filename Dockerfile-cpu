@@ -31,7 +31,12 @@ RUN mkdir -p /opt/models /opt/logs /opt/recs
 
 RUN useradd --no-create-home --shell /bin/false stt
 RUN chown -R stt:stt /opt
-USER stt
+
+# Start as root: the entrypoint chowns the bind-mounted dirs (the build-time
+# chown above cannot reach host-owned mounts) and drops privileges to stt.
+COPY entrypoint.sh /opt/entrypoint.sh
+RUN chmod +x /opt/entrypoint.sh
+ENTRYPOINT ["/opt/entrypoint.sh"]
 
 EXPOSE 5099
 CMD ["python", "stt_server.py"]

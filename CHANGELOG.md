@@ -16,6 +16,13 @@
 - **Multilingual README.** Translations live in `docs/README_<LANG>.md` and are
   linked from the language switcher at the top of each README.
 
+#### Fixed
+- **First-run model download into bind-mounted `./models`.** The container
+  runs as the unprivileged `stt` user while the host-owned bind mounts stayed
+  root-owned, so `whisper.load_model` died with `PermissionError` (same trap
+  for `./logs` and `./recs`). A root entrypoint now fixes ownership of the
+  mounted dirs and drops privileges via `setpriv` before starting the server.
+
 #### Changed
 - **Uniform error responses.** Every error carries a generic `error` category and
   a `request_id` that correlates the response with the full exception in the
