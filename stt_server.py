@@ -15,7 +15,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Local imports
-from libs import audio, catalog, config, diarize, logs, model_pool, stt
+from libs import align, audio, catalog, config, diarize, logs, model_pool, stt
 from libs.auth import token_required
 from libs.errors import build_error_response, get_request_id, register_error_handlers
 
@@ -273,6 +273,117 @@ def diarize_speakers():
         return build_error_response("Diarization failed", 500)
     finally:
         model_pool.release_diarizer(diarizer)
+
+
+def run_diarization(wav_bio):
+    """Diarize the buffer with a pooled instance, releasing it before anything else runs."""
+    diarizer = model_pool.acquire_diarizer()
+    try:
+        wav_bio.seek(0)
+        return diarize.diarize_wav(wav_bio, diarizer=diarizer)
+    finally:
+        model_pool.release_diarizer(diarizer)
+
+
+def run_transcription(wav_bio, language):
+    """Transcribe the buffer with a pooled model, releasing it before anything else runs."""
+    model = model_pool.acquire_model()
+    try:
+        wav_bio.seek(0)
+        return stt.get_stt_segments(wav_bio, model=model, language=language)
+    finally:
+        model_pool.release_model(model)
+
+
+@app.route("/api/transcript", methods=["POST"])
+@token_required
+def transcribe_by_speaker():
+    """Transcribe an uploaded file and attribute each part of it to a speaker.
+
+    Accepts the same body shapes as /api/stt. Diarization runs first and its instance is
+    released before a transcription model is borrowed, so no request ever holds one of each.
+
+    `turns` is the diarizer's raw output and `segments` is the join, kept as two fields rather
+    than one fused list so a caller who distrusts the attribution can still see what the
+    diarizer said. `text` is the unattributed transcript.
+
+    `overlap` marks a segment during which another speaker was also talking. NVIDIA is explicit
+    that pairing a conventional single-speaker model with diarization is not equivalent to a
+    model built for overlapping speech: an extracted range still contains every voice that
+    overlaps it, so those segments may merge or select the wrong speaker's words.
+
+    Returns::
+        {"segments": [...], "turns": [...], "speakers": 2, "text": "...", "elapsed": 1.23}
+    """
+    if not config.DIARIZE_ENABLED:
+        logger.warning("[%s] Speaker transcript requested while diarization is disabled", get_request_id())
+        return build_error_response("Diarization disabled", 503)
+    if not model_pool.diarizer_ready():
+        logger.warning("[%s] Speaker transcript requested but no diarizer loaded", get_request_id())
+        return build_error_response("Diarization unavailable", 503)
+
+    start_time = time.monotonic()
+
+    upload = read_audio_upload()
+    if upload is None:
+        return build_error_response("No audio data", 400)
+    bio, filename = upload
+    size_kb = len(bio.getvalue()) // 1024
+
+    language = read_language_argument()
+    if language is not None:
+        language = resolve_language(language)
+        if language is None:
+            return build_error_response("Invalid language", 400)
+
+    wav_bio = convert_upload(bio)
+    if wav_bio is None:
+        return build_error_response("Invalid audio data", 400)
+
+    try:
+        turns = run_diarization(wav_bio)
+    except queue.Empty:
+        logger.warning("[%s] Diarizer pool exhausted: %s", get_request_id(), model_pool.get_pool_status())
+        return build_error_response("Service Unavailable", 503)
+    except Exception as exc:
+        logger.error("[%s] Diarization failed: %s: %s\n%s", get_request_id(), type(exc).__name__, exc, traceback.format_exc())
+        return build_error_response("Diarization failed", 500)
+
+    try:
+        segments = run_transcription(wav_bio, language)
+    except queue.Empty:
+        logger.warning("[%s] Model pool exhausted: %s", get_request_id(), model_pool.get_pool_status())
+        return build_error_response("Service Unavailable", 503)
+    except Exception as exc:
+        logger.error("[%s] STT failed: %s: %s\n%s", get_request_id(), type(exc).__name__, exc, traceback.format_exc())
+        return build_error_response("Transcription failed", 500)
+
+    attributed = align.attribute_segments(segments, turns)
+    elapsed = time.monotonic() - start_time
+    speakers = align.count_speakers(attributed)
+    logger.info(
+        "[%s] Transcript %s (%dkb) - %d segments, %d speakers (%.2fs)",
+        get_request_id(),
+        filename,
+        size_kb,
+        len(attributed),
+        speakers,
+        elapsed,
+    )
+    return (
+        jsonify(
+            {
+                "segments": attributed,
+                "turns": turns,
+                "speakers": speakers,
+                # Joined with no separator, not with a space: whisper's segment texts already carry
+                # their leading space, so this reproduces exactly what /api/stt would return.
+                "text": "".join(segment["text"] for segment in segments).strip(),
+                "elapsed": round(elapsed, 3),
+            }
+        ),
+        200,
+    )
 
 
 def log_auth_mode() -> None:

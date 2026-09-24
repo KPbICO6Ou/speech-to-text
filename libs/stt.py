@@ -53,7 +53,7 @@ def resolve_device(device: str | None = None) -> str:
     return device
 
 
-def get_model(device: str = config.COMPUTE_TYPE) -> whisper.Whisper:
+def get_model(device: str | None = None) -> whisper.Whisper:
     """Load one Whisper model instance onto the resolved device, downloading it if needed."""
     device = resolve_device(device)
     os.makedirs(config.WHISPER_DOWNLOAD_ROOT, exist_ok=True)
@@ -149,7 +149,7 @@ def describe_backend() -> dict:
 def get_stt_bio(
     bio: io.BytesIO,
     model: whisper.Whisper | None = None,
-    device: str = config.COMPUTE_TYPE,
+    device: str | None = None,
     language: str | None = None,
 ) -> str:
     """Transcribe a WAV buffer and return the text.
@@ -178,10 +178,48 @@ def get_stt_bio(
     return text
 
 
+def get_stt_segments(
+    bio: io.BytesIO,
+    model: whisper.Whisper | None = None,
+    device: str | None = None,
+    language: str | None = None,
+) -> list[dict]:
+    """Transcribe a WAV buffer and return its segments with their times.
+
+    The same unmodified decode as get_stt_bio, keeping `result["segments"]` instead of
+    discarding it. Deliberately NOT `word_timestamps=True`: that flag rewrites `seek` from the
+    end of the last word and clears segments of zero duration, whose tokens then never reach
+    the text, so it can change the transcription the rest of this module fixes on purpose.
+    Segment times come free and change nothing.
+    """
+    if model is None:
+        model = get_model(device=device)
+    data = read_waveform(bio)
+    torch.manual_seed(0)
+    np.random.seed(0)
+    result = model.transcribe(
+        audio=data,
+        language=normalize_language(language),
+        task="transcribe",
+        temperature=0.0,
+        beam_size=1,
+        best_of=1,
+        condition_on_previous_text=False,
+    )
+    # float() rather than the raw values: whisper hands back numpy scalars, which the JSON
+    # encoder refuses.
+    segments = [
+        {"start": float(segment["start"]), "end": float(segment["end"]), "text": segment["text"]}
+        for segment in result["segments"]
+    ]
+    logger.debug("Transcribed %d segments", len(segments))
+    return segments
+
+
 def get_stt_filename(
     filename: str,
     model: whisper.Whisper | None = None,
-    device: str = config.COMPUTE_TYPE,
+    device: str | None = None,
     language: str | None = None,
 ) -> str:
     """Transcribe an audio file from disk by exporting it to a WAV buffer first."""

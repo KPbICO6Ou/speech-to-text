@@ -113,6 +113,27 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 Deux remarques sur ces nombres. Les tours de parole peuvent se chevaucher, car chaque canal de locuteur est évalué indépendamment : deux personnes qui parlent en même temps produisent donc deux tours couvrant les mêmes secondes. Et les étiquettes sont des positions dans cet enregistrement précis, ordonnées selon qui a parlé en premier : ce ne sont pas des identités, et la même personne recevra un numéro différent à la requête suivante. Nommer un locuteur exigerait une étape d'enrôlement dont ce service ne dispose pas. Huit locuteurs au maximum sont distingués.
 
+`POST /api/transcript` répond à la question **qui a dit quoi** : il exécute la diarisation et la transcription sur le même audio et les joint par le temps. Il exige que la diarisation soit activée, sinon il répond `503`.
+
+```bash
+curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
+```
+
+```json
+{
+  "segments": [ { "speaker": 0, "start": 0.5, "end": 4.2, "text": "so where are we", "overlap": false },
+                { "speaker": 1, "start": 4.0, "end": 9.8, "text": "green since this morning", "overlap": true } ],
+  "turns": [ { "speaker": 0, "start": 0.51, "end": 4.24 }, { "speaker": 1, "start": 4.0, "end": 9.81 } ],
+  "speakers": 2,
+  "text": "so where are we green since this morning",
+  "elapsed": 3.41
+}
+```
+
+`turns` est la sortie brute du diariseur et `segments` est la jointure, tenus séparés afin qu'un client qui se méfie de l'attribution puisse tout de même voir ce que le diariseur a dit. `text` est la transcription simple, identique à ce que renvoie `/api/stt` pour le même fichier. Une phrase qu'aucun tour de parole ne couvre conserve `"speaker": null` plutôt que d'être attribuée au tour le plus proche.
+
+`overlap` signale une phrase pendant laquelle quelqu'un d'autre parlait également. NVIDIA est explicite sur ce point : associer un modèle classique mono-locuteur à la diarisation n'équivaut pas à un modèle conçu pour la parole superposée. Une plage temporelle extraite contient toujours toutes les voix qui la chevauchent, de sorte que ces phrases peuvent fusionner ou retenir les mots du mauvais locuteur. Considérez un segment marqué `overlap` comme l'endroit où la transcription est la moins fiable.
+
 Les envois sont limités à `MAX_CONTENT_LENGTH_MB` (10 Mo par défaut) ; un corps plus grand renvoie `413`.
 
 Les erreurs sont uniformes : `error` porte une catégorie générique et `request_id` met en corrélation la réponse avec le journal du serveur, où l'exception complète est enregistrée.
@@ -175,6 +196,7 @@ speech-to-text/
 │   ├── audio.py         # conversion de l'envoi en WAV mono 16 kHz
 │   ├── model_pool.py    # pools d'instances Whisper et de diarisation préchargées
 │   ├── catalog.py       # ce que le serveur sait faire, pour GET /api/models
+│   ├── align.py         # joint les segments de transcription aux tours de parole
 │   ├── stt.py           # wrapper Whisper
 │   └── diarize.py       # diarisation des locuteurs (qui a parlé et quand, sans texte)
 ├── Dockerfile           # Construction GPU (CUDA 13.0)

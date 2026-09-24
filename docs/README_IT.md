@@ -113,6 +113,27 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 Due precisazioni su questi numeri. I turni possono sovrapporsi, perché ogni canale di parlante viene valutato in modo indipendente, quindi due persone che parlano contemporaneamente producono due turni che coprono gli stessi secondi. E le etichette sono posizioni all'interno di questa singola registrazione, ordinate in base a chi ha parlato per primo: non sono identità, e la stessa persona riceve un numero diverso nella richiesta successiva. Dare un nome a un parlante richiede una fase di registrazione vocale che questo servizio non prevede. Vengono distinti al massimo otto parlanti.
 
+`POST /api/transcript` risponde a **chi ha detto cosa**: esegue la diarizzazione e la trascrizione sullo stesso audio e le unisce in base al tempo. Richiede che la diarizzazione sia abilitata, altrimenti risponde `503`.
+
+```bash
+curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
+```
+
+```json
+{
+  "segments": [ { "speaker": 0, "start": 0.5, "end": 4.2, "text": "so where are we", "overlap": false },
+                { "speaker": 1, "start": 4.0, "end": 9.8, "text": "green since this morning", "overlap": true } ],
+  "turns": [ { "speaker": 0, "start": 0.51, "end": 4.24 }, { "speaker": 1, "start": 4.0, "end": 9.81 } ],
+  "speakers": 2,
+  "text": "so where are we green since this morning",
+  "elapsed": 3.41
+}
+```
+
+`turns` è l'output grezzo del diarizzatore e `segments` è la giunzione dei due, tenuti separati così che un client che non si fida dell'attribuzione possa comunque vedere ciò che ha detto il diarizzatore. `text` è la trascrizione semplice, identica a quella che `/api/stt` restituisce per lo stesso file. Una frase che nessun turno copre mantiene `"speaker": null` invece di essere assegnata a quello più vicino.
+
+`overlap` contrassegna una frase durante la quale stava parlando anche qualcun altro. NVIDIA afferma esplicitamente che abbinare un modello convenzionale a parlante singolo alla diarizzazione non equivale a un modello costruito per il parlato sovrapposto: un intervallo temporale estratto contiene comunque ogni voce che vi si sovrappone, quindi quelle frasi possono fondersi tra loro oppure selezionare le parole del parlante sbagliato. Considera un segmento contrassegnato con `overlap` come il punto in cui la trascrizione è meno affidabile.
+
 Gli upload sono limitati a `MAX_CONTENT_LENGTH_MB` (10 MB per impostazione predefinita); un corpo più grande restituisce `413`.
 
 Gli errori sono uniformi: `error` riporta una categoria generica e `request_id` correla la risposta con il log del server, dove viene registrata l'eccezione completa.
@@ -175,6 +196,7 @@ speech-to-text/
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
 │   ├── catalog.py       # what the server can do, for GET /api/models
+│   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

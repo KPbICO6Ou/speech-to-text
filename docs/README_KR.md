@@ -113,6 +113,27 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 이 숫자들에 대해 두 가지를 알아 두어야 합니다. 먼저, 화자 채널마다 따로 점수를 매기기 때문에 구간이 서로 겹칠 수 있습니다. 두 사람이 동시에 말하면 같은 시간대를 덮는 구간이 두 개 생깁니다. 그리고 화자 번호는 이 녹음 하나 안에서의 순서이며, 먼저 말한 사람부터 매겨집니다. 신원이 아니므로 다음 요청에서는 같은 사람이 다른 번호를 받습니다. 화자에게 이름을 붙이려면 등록 단계가 필요한데, 이 서비스에는 그런 단계가 없습니다. 구분되는 화자는 최대 여덟 명입니다.
 
+`POST /api/transcript`는 **누가 무엇을 말했는지**에 답합니다. 같은 오디오에 대해 화자 분리와 전사를 모두 수행한 뒤 시간을 기준으로 둘을 결합합니다. 화자 분리가 활성화되어 있어야 하며, 그렇지 않으면 `503`을 반환합니다.
+
+```bash
+curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
+```
+
+```json
+{
+  "segments": [ { "speaker": 0, "start": 0.5, "end": 4.2, "text": "so where are we", "overlap": false },
+                { "speaker": 1, "start": 4.0, "end": 9.8, "text": "green since this morning", "overlap": true } ],
+  "turns": [ { "speaker": 0, "start": 0.51, "end": 4.24 }, { "speaker": 1, "start": 4.0, "end": 9.81 } ],
+  "speakers": 2,
+  "text": "so where are we green since this morning",
+  "elapsed": 3.41
+}
+```
+
+`turns`는 화자 분리기의 원본 출력이고 `segments`는 그 결합 결과입니다. 귀속 결과를 믿지 못하는 호출자도 화자 분리기가 무엇이라고 말했는지를 그대로 볼 수 있도록 둘을 따로 두었습니다. `text`는 일반 전사문이며, 같은 파일에 대해 `/api/stt`가 반환하는 것과 동일합니다. 어느 구간에도 덮이지 않는 구절은 가장 가까운 화자에게 넘겨지는 대신 `"speaker": null`을 유지합니다.
+
+`overlap`은 다른 사람도 함께 말하고 있던 구절을 표시합니다. NVIDIA는 일반적인 단일 화자 모델을 화자 분리와 짝짓는 것이 겹쳐 말하는 음성을 위해 만들어진 모델과 동등하지 않다고 분명히 밝히고 있습니다. 잘라낸 시간 구간에는 그 구간과 겹치는 모든 목소리가 여전히 들어 있으므로, 그런 구절들은 서로 섞이거나 엉뚱한 화자의 말을 고를 수 있습니다. `overlap`이 표시된 구간은 전사문에서 가장 신뢰하기 어려운 지점으로 다루십시오.
+
 업로드는 `MAX_CONTENT_LENGTH_MB`(기본 10 MB)로 제한되며, 더 큰 본문은 `413`을 반환합니다.
 
 오류는 형식이 일관됩니다. `error`는 일반적인 범주를 담고, `request_id`는 전체 예외가 기록된 서버 로그와 응답을 연결합니다.
@@ -175,6 +196,7 @@ speech-to-text/
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
 │   ├── catalog.py       # what the server can do, for GET /api/models
+│   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

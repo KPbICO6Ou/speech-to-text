@@ -113,6 +113,27 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 Two things about those numbers. Turns may overlap, because each speaker channel is scored on its own, so two people talking at once produce two turns covering the same seconds. And the labels are positions in this one recording, ordered by who spoke first: they are not identities, and the same person gets a different number in the next request. Naming a speaker needs an enrollment step that this service does not have. At most eight speakers are distinguished.
 
+`POST /api/transcript` answers **who said what**: it runs diarization and transcription over the same audio and joins them by time. It needs diarization enabled, and otherwise answers `503`.
+
+```bash
+curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
+```
+
+```json
+{
+  "segments": [ { "speaker": 0, "start": 0.5, "end": 4.2, "text": "so where are we", "overlap": false },
+                { "speaker": 1, "start": 4.0, "end": 9.8, "text": "green since this morning", "overlap": true } ],
+  "turns": [ { "speaker": 0, "start": 0.51, "end": 4.24 }, { "speaker": 1, "start": 4.0, "end": 9.81 } ],
+  "speakers": 2,
+  "text": "so where are we green since this morning",
+  "elapsed": 3.41
+}
+```
+
+`turns` is the diarizer's raw output and `segments` is the join, kept apart so a caller who distrusts the attribution can still see what the diarizer said. `text` is the plain transcript, identical to what `/api/stt` returns for the same file. A phrase no turn covers keeps `"speaker": null` rather than being handed to the nearest one.
+
+`overlap` marks a phrase during which somebody else was also talking. NVIDIA is explicit that pairing a conventional single-speaker model with diarization is not equivalent to a model built for overlapping speech: an extracted time range still contains every voice that overlaps it, so those phrases may merge or select the wrong speaker's words. Treat a segment marked `overlap` as a place the transcript is least trustworthy.
+
 Uploads are capped at `MAX_CONTENT_LENGTH_MB` (10 MB by default); a larger body returns `413`.
 
 Errors are uniform: `error` carries a generic category and `request_id` correlates the response with the server log, where the full exception is recorded.
@@ -175,6 +196,7 @@ speech-to-text/
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
 │   ├── catalog.py       # what the server can do, for GET /api/models
+│   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

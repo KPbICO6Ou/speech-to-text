@@ -113,6 +113,27 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 关于这些数字有两点说明。时间区间可能重叠，因为每个说话人通道都是单独评分的，所以两个人同时说话会产生覆盖相同秒数的两个区间。而这些编号只是这一次录音中的位置，按谁先开口排序：它们不是身份标识，同一个人在下一次请求中会得到不同的编号。要给说话人命名，需要一个本服务所不具备的声纹注册步骤。最多可区分八个说话人。
 
+`POST /api/transcript` 回答的是**谁说了什么**：它对同一段音频同时运行说话人分离和转录，并按时间将二者连接起来。它需要启用说话人分离，否则返回 `503`。
+
+```bash
+curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
+```
+
+```json
+{
+  "segments": [ { "speaker": 0, "start": 0.5, "end": 4.2, "text": "so where are we", "overlap": false },
+                { "speaker": 1, "start": 4.0, "end": 9.8, "text": "green since this morning", "overlap": true } ],
+  "turns": [ { "speaker": 0, "start": 0.51, "end": 4.24 }, { "speaker": 1, "start": 4.0, "end": 9.81 } ],
+  "speakers": 2,
+  "text": "so where are we green since this morning",
+  "elapsed": 3.41
+}
+```
+
+`turns` 是说话人分离器的原始输出，`segments` 是二者连接后的结果，它们被分开保留，以便不信任这种归属的调用方仍能看到说话人分离器给出的结论。`text` 是纯转录文本，与 `/api/stt` 对同一文件返回的内容完全相同。没有任何一个 turn 覆盖到的语句会保持 `"speaker": null`，而不会被交给最接近的那一个。
+
+`overlap` 标记的是在该语句期间还有其他人同时在说话。NVIDIA 明确指出，将传统的单说话人模型与说话人分离配合使用，并不等同于一个为重叠语音而构建的模型：被截取出来的时间区间里仍然包含所有与之重叠的声音，因此这些语句可能会混在一起，或者选中错误说话人的话语。把标记了 `overlap` 的片段视为转录结果最不可信的地方。
+
 上传大小上限为 `MAX_CONTENT_LENGTH_MB`（默认 10 MB）；更大的请求体返回 `413`。
 
 错误格式统一：`error` 携带一个通用类别，`request_id` 将响应与服务器日志关联起来，完整的异常信息记录在日志中。
@@ -175,6 +196,7 @@ speech-to-text/
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
 │   ├── catalog.py       # what the server can do, for GET /api/models
+│   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

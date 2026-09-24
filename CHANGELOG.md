@@ -3,6 +3,13 @@
 ### [Unreleased]
 
 #### Added
+- **`POST /api/transcript`: who said what.** Diarization and transcription over the
+  same audio, joined by time. Returns the attributed `segments`, the diarizer's raw
+  `turns` beside them, the plain `text` and the speaker count. A phrase no turn covers
+  keeps `"speaker": null` instead of being handed to the nearest speaker, and `overlap`
+  marks a phrase somebody else was talking across. NVIDIA is explicit that this pairing
+  is not equivalent to a model built for overlapping speech, and the README says so.
+  The join is a pure function in `libs/align.py`, tested without any model.
 - **`GET /api/models`: what this server actually carries.** One row per backend with its
   own language list, its model id and aliases, and a three-valued `status` -
   `loaded` when an instance waits in a pool, `installed` when the weights are on disk,

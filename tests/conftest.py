@@ -31,6 +31,14 @@ def fake_get_stt_bio(bio, model=None, device=None, language=None):
     return "stub transcription"
 
 
+def fake_get_stt_segments(bio, model=None, device=None, language=None):
+    """Stand in for stt.get_stt_segments() with two phrases straddling the stub speaker turns."""
+    return [
+        {"start": 0.0, "end": 1.1, "text": " first phrase"},
+        {"start": 1.3, "end": 2.4, "text": " second phrase"},
+    ]
+
+
 def fake_describe_whisper():
     """Stand in for stt.describe_backend(): a two-language model that is on disk."""
     return {
@@ -87,6 +95,7 @@ fake_stt = types.ModuleType("libs.stt")
 fake_stt.get_model = fake_get_model
 fake_stt.get_stt_bio = fake_get_stt_bio
 fake_stt.describe_backend = fake_describe_whisper
+fake_stt.get_stt_segments = fake_get_stt_segments
 fake_stt.normalize_language_code = fake_normalize_language_code
 sys.modules["libs.stt"] = fake_stt
 libs.stt = fake_stt
