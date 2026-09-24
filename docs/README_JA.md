@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models` はこのサーバーが備えているものを報告するため、クライアントが推測する必要はありません。バックエンドごとに独自の言語リストを返します。対応する言語の集合は実際に食い違っており、統合したリストではどのバックエンドにとっても正しくないからです。
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+`status` は、インスタンスがプールで待機している場合は `loaded`、重みがディスク上にあるもののまだ何も読み込まれていない場合は `installed`、それ以外は `absent` になります。設定されているがインストールされていないバックエンドは `absent` とだけ伝え、理由はログに記録されます。`accepts_language` は、そのバックエンドにとって `?language=` に意味があるかどうかを示します。ダイアライザーはどの言語のテキストも生成しないため、言語は空のリストではなく `null` を報告します。
+
+CLI クライアントは同じエンドポイントを読み取ります。
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize` は **誰がいつ話したか** だけに答え、それ以外は返しません。話者番号付きの時間範囲を返すだけで、テキストは決して返しません。`DIARIZE=true` でビルドしたイメージ上で `DIARIZE_ENABLED` を設定しない限り無効で、その場合は `503` を返します。
 
 ```bash
@@ -92,7 +119,7 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-`STT_TOKENS` が設定されている場合、すべての `POST /api/stt` は `Authorization: Bearer <token>` を伴う必要があります。`GET /api/health` は開いたままなので、ヘルスチェックは引き続き機能します。
+`STT_TOKENS` が設定されている場合、`GET /api/health` を除くすべてのルートは `Authorization: Bearer <token>` を伴う必要があります。`GET /api/health` は開いたままなので、ヘルスチェックは引き続き機能します。
 
 ### CLI クライアント
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

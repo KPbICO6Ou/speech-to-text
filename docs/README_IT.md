@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models` indica ciò che questo server offre, così un client non deve tirare a indovinare. Ogni backend porta il proprio elenco di lingue, perché gli insiemi divergono realmente e un elenco unificato sarebbe errato per ogni singolo backend.
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+`status` è `loaded` quando un'istanza è in attesa in un pool, `installed` quando i pesi sono sul disco ma non è ancora stato caricato nulla, e `absent` negli altri casi. Un backend configurato ma non installato risponde `absent` e nient'altro; il motivo finisce nel log. `accepts_language` indica se `?language=` abbia un qualche significato per quel backend. Il diarizzatore riporta `null` come lingue anziché un elenco vuoto, perché non produce testo in nessuna lingua.
+
+Il client a riga di comando legge lo stesso endpoint:
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize` risponde a **chi ha parlato e quando**, e a nient'altro: restituisce intervalli temporali con un numero di parlante, mai il testo. È disattivato a meno che `DIARIZE_ENABLED` non sia impostato su un'immagine costruita con `DIARIZE=true`; in caso contrario risponde `503`.
 
 ```bash
@@ -92,7 +119,7 @@ Gli errori sono uniformi: `error` riporta una categoria generica e `request_id` 
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-Quando `STT_TOKENS` è impostato, ogni `POST /api/stt` deve includere `Authorization: Bearer <token>`; `GET /api/health` resta aperto, così i controlli di integrità continuano a funzionare.
+Quando `STT_TOKENS` è impostato, ogni rotta tranne `GET /api/health` deve includere `Authorization: Bearer <token>`; `GET /api/health` resta aperto, così i controlli di integrità continuano a funzionare.
 
 ### Client a riga di comando
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

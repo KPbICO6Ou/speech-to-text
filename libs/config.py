@@ -41,6 +41,11 @@ WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en").lower()
 WHISPER_DOWNLOAD_ROOT = os.getenv("WHISPER_DOWNLOAD_ROOT", "models")
 COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "auto").lower()
 
+# Which backend transcribes. Only "whisper" exists today; the name is published by
+# GET /api/models so a client can see it, and a second backend slots in here rather than
+# changing the response shape after clients have started reading it.
+STT_BACKEND = os.getenv("STT_BACKEND", "whisper")
+
 # Speaker diarization. Off by default: the model is an optional extra, it is documented for
 # NVIDIA GPUs only, and a deployment that does not want it should stay byte-identical to one
 # that never heard of it.

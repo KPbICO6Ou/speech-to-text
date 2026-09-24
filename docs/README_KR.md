@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models`는 이 서버가 무엇을 갖추고 있는지 알려 주므로, 클라이언트가 짐작할 필요가 없습니다. 각 백엔드는 자신의 언어 목록을 함께 제공합니다. 집합이 실제로 서로 다르기 때문에, 하나로 합친 목록은 개별 백엔드 어느 쪽에도 맞지 않습니다.
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+`status`는 풀에 인스턴스가 대기 중이면 `loaded`, 가중치는 디스크에 있지만 아직 로드된 것이 없으면 `installed`, 그 외에는 `absent`입니다. 설정은 되어 있지만 설치되지 않은 백엔드는 `absent`라고만 말하며, 그 이상은 알려 주지 않습니다. 이유는 로그로 들어갑니다. `accepts_language`는 해당 백엔드에서 `?language=`가 애초에 의미를 갖는지 여부를 나타냅니다. 화자 분리기는 빈 목록이 아니라 `null` 언어를 반환하는데, 어떤 언어로도 텍스트를 생성하지 않기 때문입니다.
+
+CLI 클라이언트도 같은 엔드포인트를 읽습니다.
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize`는 **누가 언제 말했는지**만 답하며, 그 외에는 아무것도 반환하지 않습니다. 화자 번호가 붙은 시간 구간을 돌려줄 뿐, 텍스트는 절대 반환하지 않습니다. `DIARIZE=true`로 빌드한 이미지에서 `DIARIZE_ENABLED`가 설정되어 있지 않으면 비활성 상태이며, 그 경우 `503`을 반환합니다.
 
 ```bash
@@ -92,7 +119,7 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-`STT_TOKENS`가 설정되어 있으면 모든 `POST /api/stt`는 `Authorization: Bearer <token>`을 포함해야 합니다. `GET /api/health`는 헬스체크가 계속 동작하도록 열려 있습니다.
+`STT_TOKENS`가 설정되어 있으면 `GET /api/health`를 제외한 모든 경로는 `Authorization: Bearer <token>`을 포함해야 합니다. `GET /api/health`는 헬스체크가 계속 동작하도록 열려 있습니다.
 
 ### CLI 클라이언트
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

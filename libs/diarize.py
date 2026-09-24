@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 # The model card states one input format and one only: 16 kHz, single channel.
 TARGET_SAMPLE_RATE = 16000
 
+# The architecture emits eight speaker channels, ordered by arrival time in the audio.
+MAX_SPEAKERS = 8
+
 
 def resolve_device(device: str | None = None) -> str:
     """Resolve "auto" to cuda/cpu and reject a device this machine cannot serve.
@@ -38,6 +41,27 @@ def resolve_device(device: str | None = None) -> str:
     if device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available on this machine.")
     return device
+
+
+def describe_backend() -> dict:
+    """Describe the diarizer for GET /api/models, loading nothing.
+
+    It has no languages at all: it reports who spoke when and never what was said, so the
+    language fields are null rather than an empty list, which would read as "none supported".
+    """
+    model_id = config.DIARIZE_MODEL
+    cached = os.path.join(config.DIARIZE_DOWNLOAD_ROOT, "models--" + model_id.replace("/", "--"))
+    return {
+        "backend": "diarize",
+        "model": model_id,
+        "aliases": [],
+        "status": "installed" if os.path.isdir(cached) else "absent",
+        "multilingual": None,
+        "accepts_language": False,
+        "languages_source": None,
+        "languages": None,
+        "max_speakers": MAX_SPEAKERS,
+    }
 
 
 def get_diarizer(model_id: str | None = None, device: str | None = None):

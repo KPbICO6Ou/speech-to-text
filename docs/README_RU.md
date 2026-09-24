@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models` сообщает, что умеет этот сервер, чтобы клиенту не приходилось угадывать. Каждый бэкенд приносит свой список языков, потому что наборы действительно расходятся, и объединённый список был бы неверен для каждого бэкенда по отдельности.
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+`status` равен `loaded`, когда экземпляр ждёт в пуле, `installed`, когда веса лежат на диске, но ничего ещё не загружено, и `absent` в остальных случаях. Бэкенд, который настроен, но не установлен, отвечает `absent` и ничего больше; причина уходит в лог. `accepts_language` говорит, значит ли `?language=` вообще что-нибудь для этого бэкенда. Диаризатор сообщает `null` вместо пустого списка языков, потому что он не производит текст ни на одном языке.
+
+CLI-клиент читает тот же эндпоинт:
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize` отвечает на вопрос **кто и когда говорил**, и только на него: он возвращает временные интервалы с номером говорящего, но никогда не текст. Эндпоинт выключен, пока не задана переменная `DIARIZE_ENABLED` в образе, собранном с `DIARIZE=true`; иначе он отвечает `503`.
 
 ```bash
@@ -92,7 +119,7 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-Если задана переменная `STT_TOKENS`, каждый `POST /api/stt` должен содержать `Authorization: Bearer <token>`; `GET /api/health` остаётся открытым, чтобы продолжали работать проверки состояния.
+Если задана переменная `STT_TOKENS`, каждый запрос, кроме `GET /api/health`, должен содержать `Authorization: Bearer <token>`; сам `GET /api/health` остаётся открытым, чтобы продолжали работать проверки состояния.
 
 ### CLI-клиент
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # опциональная авторизация по статическому токену
 │   ├── audio.py         # конвертация загруженного файла в моно-WAV 16 кГц
 │   ├── model_pool.py    # пулы предзагруженных экземпляров Whisper и диаризатора
+│   ├── catalog.py       # что умеет сервер, для GET /api/models
 │   ├── stt.py           # обёртка над Whisper
 │   └── diarize.py       # диаризация говорящих (кто когда говорил, без текста)
 ├── Dockerfile           # сборка под GPU (CUDA 13.0)

@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models` 会报告本服务器所具备的能力，因此客户端无需猜测。每个后端都带有自己的语言列表，因为这些集合确实存在差异，而一个合并后的列表对任何单独的后端来说都是错误的。
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+当有实例在池中等待时，`status` 为 `loaded`；当权重已在磁盘上但尚未加载任何实例时为 `installed`；其余情况为 `absent`。已配置但未安装的后端只会返回 `absent`，不作其他说明；原因记录在日志中。`accepts_language` 说明 `?language=` 对该后端是否有任何意义。说话人分离器报告的 `languages` 为 `null` 而非空列表，因为它不产生任何语言的文本。
+
+命令行客户端读取的是同一个接口：
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize` 回答的是**谁在什么时候说话**，仅此而已：它返回带说话人编号的时间区间，而绝不返回文本。除非在以 `DIARIZE=true` 构建的镜像上设置了 `DIARIZE_ENABLED`，否则该接口处于关闭状态，并返回 `503`。
 
 ```bash
@@ -92,7 +119,7 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-当设置了 `STT_TOKENS` 时，每个 `POST /api/stt` 都必须携带 `Authorization: Bearer <token>`；`GET /api/health` 保持开放，以便健康检查能正常工作。
+当设置了 `STT_TOKENS` 时，除 `GET /api/health` 之外的每个路由都必须携带 `Authorization: Bearer <token>`；该接口保持开放，以便健康检查能正常工作。
 
 ### 命令行客户端
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

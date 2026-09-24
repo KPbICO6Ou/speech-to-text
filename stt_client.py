@@ -19,12 +19,44 @@ logger = logging.getLogger(__name__)
 # Generous enough for a cold model pool on the server side.
 REQUEST_TIMEOUT = 120
 
+# A hundred language codes on one line is not a listing anybody reads.
+LANGUAGES_SHOWN = 8
+
 
 def build_headers() -> dict[str, str]:
     """Build the request headers, adding the bearer token only when one is configured."""
     if not config.STT_TOKEN:
         return {}
     return {"Authorization": f"Bearer {config.STT_TOKEN}"}
+
+
+def fetch_models() -> dict:
+    """GET /api/models and return the decoded catalogue."""
+    resp = requests.get(f"{config.STT_URL}/api/models", headers=build_headers(), timeout=REQUEST_TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def log_models() -> None:
+    """Print what the server carries: one line per backend, languages truncated to stay readable."""
+    catalogue = fetch_models()
+    logger.info("Default backend: %s", catalogue.get("default", "?"))
+    for row in catalogue.get("models", []):
+        languages = row.get("languages")
+        if languages is None:
+            spoken = "-"
+        elif len(languages) > LANGUAGES_SHOWN:
+            spoken = f"{', '.join(languages[:LANGUAGES_SHOWN])} (+{len(languages) - LANGUAGES_SHOWN} more)"
+        else:
+            spoken = ", ".join(languages)
+        logger.info(
+            "%-9s %-34s %-9s lang=%-5s %s",
+            row.get("backend", "?"),
+            row.get("model", "?"),
+            row.get("status", "?"),
+            "yes" if row.get("accepts_language") else "no",
+            spoken,
+        )
 
 
 def transcribe_file(filepath: str) -> dict:
@@ -79,8 +111,16 @@ def transcribe_and_log(filepath: str, position: str) -> None:
 def main():
     """Entry point: transcribe every file given on the command line, in order."""
     if len(sys.argv) < 2:
-        logger.error("Usage: %s <file1> [file2] ...", sys.argv[0])
+        logger.error("Usage: %s <file1> [file2] ... | --list", sys.argv[0])
         sys.exit(1)
+
+    if sys.argv[1] == "--list":
+        try:
+            log_models()
+        except Exception as exc:
+            logger.error("%s: %s\n%s", type(exc).__name__, exc, traceback.format_exc())
+            sys.exit(1)
+        return
 
     files = sys.argv[1:]
     for index, filepath in enumerate(files, 1):

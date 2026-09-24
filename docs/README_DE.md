@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models` gibt an, was dieser Server mitbringt, sodass ein Client nicht raten muss. Jedes Backend bringt seine eigene Sprachliste mit, denn die Mengen weichen tatsächlich voneinander ab, und eine zusammengeführte Liste wäre für jedes Backend einzeln falsch.
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+`status` ist `loaded`, wenn eine Instanz in einem Pool wartet, `installed`, wenn die Gewichte auf der Platte liegen, aber noch nichts geladen ist, und andernfalls `absent`. Ein Backend, das konfiguriert, aber nicht installiert ist, meldet `absent` und nichts weiter; der Grund geht ins Log. `accepts_language` sagt, ob `?language=` für dieses Backend überhaupt eine Bedeutung hat. Der Diarisierer meldet `null` als Sprachen statt einer leeren Liste, denn er erzeugt in keiner Sprache Text.
+
+Der CLI-Client liest denselben Endpunkt:
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize` beantwortet **wer wann gesprochen hat**, und sonst nichts: Der Endpunkt gibt Zeitbereiche mit einer Sprechernummer zurück, niemals Text. Er ist deaktiviert, sofern nicht `DIARIZE_ENABLED` auf einem mit `DIARIZE=true` gebauten Image gesetzt ist; andernfalls antwortet er mit `503`.
 
 ```bash
@@ -92,7 +119,7 @@ Fehler sind einheitlich: `error` trägt eine generische Kategorie, und `request_
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-Wenn `STT_TOKENS` gesetzt ist, muss jede `POST /api/stt`-Anfrage `Authorization: Bearer <token>` mitführen; `GET /api/health` bleibt offen, damit Healthchecks weiterhin funktionieren.
+Wenn `STT_TOKENS` gesetzt ist, muss jede Route außer `GET /api/health` `Authorization: Bearer <token>` mitführen; dieser Endpunkt bleibt offen, damit Healthchecks weiterhin funktionieren.
 
 ### CLI-Client
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # optionale Authentifizierung per statischem Token
 │   ├── audio.py         # Upload -> Konvertierung nach 16 kHz Mono-WAV
 │   ├── model_pool.py    # Pools vorgeladener Whisper- und Diarisierungs-Instanzen
+│   ├── catalog.py       # was dieser Server kann, für GET /api/models
 │   ├── stt.py           # Whisper-Wrapper
 │   └── diarize.py       # Sprecherdiarisierung (wer wann gesprochen hat, kein Text)
 ├── Dockerfile           # GPU-Build (CUDA 13.0)

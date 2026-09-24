@@ -16,7 +16,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Local imports
-from libs import audio, config, diarize, logs, model_pool, stt
+from libs import audio, catalog, config, diarize, logs, model_pool, stt
 from libs.auth import token_required
 from libs.errors import build_error_response, get_request_id, register_error_handlers
 
@@ -119,6 +119,24 @@ def convert_upload(bio):
 def health():
     """Report service liveness and model pool occupancy; available=0 means all models are busy."""
     return jsonify({"status": "ok", **model_pool.get_pool_status()}), 200
+
+
+@app.route("/api/models", methods=["GET"])
+@token_required
+def list_models():
+    """Report the backends this server carries, each with its own language list.
+
+    Behind the token like every other non-health route: a catalogue publishes the server's
+    configuration, including which model is loaded and where it is in its lifecycle.
+
+    `status` is one of `loaded` (an instance is waiting in a pool), `installed` (the weights
+    are on disk but nothing is loaded yet) or `absent`. A backend that is configured but not
+    installed says `absent` and nothing more; the reason is in the log.
+
+    `languages` is per backend and never a union, because the sets genuinely diverge.
+    `accepts_language` says whether `?language=` means anything to that backend at all.
+    """
+    return jsonify(catalog.list_models()), 200
 
 
 @app.route("/api/stt", methods=["POST"])

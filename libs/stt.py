@@ -16,6 +16,7 @@ import torch
 import torchaudio
 import whisper
 from pydub import AudioSegment
+from whisper.tokenizer import LANGUAGES, TO_LANGUAGE_CODE
 
 # Local imports
 from libs import config, logs
@@ -33,9 +34,16 @@ AUTODETECT_VALUES = ("", "auto")
 
 SUPPORTED_DEVICES = ("cpu", "cuda")
 
+# Whisper's language table is sliced by the checkpoint: the large-v3 lineage was trained on 100
+# languages, every other multilingual checkpoint on the first 99, and a `.en` checkpoint on one.
+# whisper derives this as `n_vocab - 51765 - int(is_multilingual)`; resolving it from the NAME
+# instead means describing the backend does not have to load two gigabytes of weights.
+LANGUAGES_100 = ("large-v3", "large", "large-v3-turbo", "turbo")
 
-def resolve_device(device: str = config.COMPUTE_TYPE) -> str:
+
+def resolve_device(device: str | None = None) -> str:
     """Resolve "auto" to cuda/cpu and reject a device this machine cannot serve."""
+    device = config.COMPUTE_TYPE if device is None else device
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     if device not in SUPPORTED_DEVICES:
@@ -84,6 +92,58 @@ def read_waveform(bio: io.BytesIO) -> np.ndarray:
     if peak > 0:
         data = data / peak
     return data
+
+
+def resolve_languages(model_name: str) -> list[str]:
+    """The language codes a Whisper checkpoint accepts, without loading it."""
+    if model_name.endswith(".en"):
+        return ["en"]
+    return list(LANGUAGES)[: 100 if model_name in LANGUAGES_100 else 99]
+
+
+def normalize_language_code(language: str) -> str | None:
+    """Map a requested language onto a Whisper code, or None when it knows no such language.
+
+    Accepts a code (`ru`) and a full English name (`russian`), which is what Whisper itself
+    accepts; anything else is unknown, and the caller should refuse it rather than let the
+    backend raise on a value that only looked plausible.
+    """
+    value = language.strip().lower()
+    if value in LANGUAGES:
+        return value
+    return TO_LANGUAGE_CODE.get(value)
+
+
+def is_installed(model_name: str | None = None) -> bool:
+    """Whether the checkpoint is already on disk, resolved through whisper's own download name.
+
+    The configured name and the file differ: `turbo` downloads as `large-v3-turbo.pt`, so
+    comparing the name against the directory listing would report a running model as missing.
+    A filesystem path in WHISPER_MODEL counts as installed when the file exists.
+    """
+    model_name = config.WHISPER_MODEL if model_name is None else model_name
+    if model_name not in whisper._MODELS:
+        return os.path.isfile(model_name)
+    filename = os.path.basename(whisper._MODELS[model_name])
+    return os.path.isfile(os.path.join(config.WHISPER_DOWNLOAD_ROOT, filename))
+
+
+def describe_backend() -> dict:
+    """Describe this backend for GET /api/models, loading nothing."""
+    model_name = config.WHISPER_MODEL
+    url = whisper._MODELS.get(model_name)
+    aliases = sorted(name for name, other in whisper._MODELS.items() if name != model_name and other == url) if url else []
+    return {
+        "backend": "whisper",
+        "model": model_name,
+        "aliases": aliases,
+        "status": "installed" if is_installed(model_name) else "absent",
+        "multilingual": not model_name.endswith(".en"),
+        "accepts_language": True,
+        "languages_source": "derived",
+        "languages": resolve_languages(model_name),
+        "default_language": config.WHISPER_LANGUAGE,
+    }
 
 
 def get_stt_bio(

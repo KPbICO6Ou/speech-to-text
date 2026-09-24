@@ -71,6 +71,33 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`GET /api/models` बताता है कि यह सर्वर क्या-क्या रखता है, ताकि किसी क्लाइंट को अनुमान न लगाना पड़े। हर बैकएंड अपनी अलग भाषा-सूची लाता है, क्योंकि ये समूह वास्तव में एक-दूसरे से भिन्न हैं और एक मिली-जुली सूची अलग-अलग हर बैकएंड के लिए ग़लत होती।
+
+```bash
+curl -H 'Authorization: Bearer <token>' localhost:5099/api/models
+```
+
+```json
+{
+  "default": "whisper",
+  "models": [
+    { "backend": "whisper", "model": "turbo", "aliases": ["large-v3-turbo"], "status": "loaded",
+      "multilingual": true, "accepts_language": true, "languages_source": "derived",
+      "languages": ["en", "zh", "de", "..."], "default_language": "en", "default": true },
+    { "backend": "diarize", "model": "nvidia/Nemotron-3-Diarization", "status": "installed",
+      "accepts_language": false, "languages": null, "max_speakers": 8, "default": false }
+  ]
+}
+```
+
+`status` तब `loaded` होता है जब कोई इंस्टेंस पूल में प्रतीक्षा कर रहा हो, `installed` तब जब वेट्स डिस्क पर मौजूद हों लेकिन अभी कुछ लोड न हुआ हो, और अन्यथा `absent`। ऐसा बैकएंड जो कॉन्फ़िगर है पर इंस्टॉल नहीं, केवल `absent` कहता है और उससे अधिक कुछ नहीं; कारण लॉग में जाता है। `accepts_language` बताता है कि उस बैकएंड के लिए `?language=` का कोई अर्थ है या नहीं। डायराइज़र खाली सूची के बजाय `null` भाषाएँ लौटाता है, क्योंकि वह किसी भी भाषा में टेक्स्ट नहीं बनाता।
+
+CLI क्लाइंट भी यही एंडपॉइंट पढ़ता है:
+
+```bash
+python3 stt_client.py --list
+```
+
 `POST /api/diarize` केवल यह उत्तर देता है कि **कौन कब बोला**, और कुछ नहीं: यह स्पीकर संख्या के साथ समय-अंतराल लौटाता है, कभी टेक्स्ट नहीं। यह तब तक बंद रहता है जब तक `DIARIZE=true` के साथ बनाई गई इमेज पर `DIARIZE_ENABLED` सेट न हो; अन्यथा यह `503` लौटाता है।
 
 ```bash
@@ -92,7 +119,7 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 { "error": "Invalid audio data", "request_id": "a1b2c3d4e5f6" }
 ```
 
-जब `STT_TOKENS` सेट होता है, तो हर `POST /api/stt` को `Authorization: Bearer <token>` ले जाना होता है; `GET /api/health` खुला रहता है ताकि हेल्थचेक काम करते रहें।
+जब `STT_TOKENS` सेट होता है, तो `GET /api/health` को छोड़कर हर रूट को `Authorization: Bearer <token>` ले जाना होता है; हेल्थचेक काम करते रहें, इसलिए वही एक रूट खुला रहता है।
 
 ### CLI क्लाइंट
 
@@ -145,6 +172,7 @@ speech-to-text/
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
 │   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── stt.py           # Whisper wrapper
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

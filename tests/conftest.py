@@ -31,9 +31,45 @@ def fake_get_stt_bio(bio, model=None, device=None, language=None):
     return "stub transcription"
 
 
+def fake_describe_whisper():
+    """Stand in for stt.describe_backend(): a two-language model that is on disk."""
+    return {
+        "backend": "whisper",
+        "model": "small.en-stub",
+        "aliases": [],
+        "status": "installed",
+        "multilingual": True,
+        "accepts_language": True,
+        "languages_source": "derived",
+        "languages": ["en", "ru"],
+        "default_language": "en",
+    }
+
+
+def fake_normalize_language_code(language):
+    """Stand in for stt.normalize_language_code(): knows English and Russian only."""
+    known = {"en": "en", "english": "en", "ru": "ru", "russian": "ru"}
+    return known.get(language.strip().lower())
+
+
 def fake_get_diarizer(model_id=None):
     """Stand in for diarize.get_diarizer() - the tests never load real diarization weights."""
     return object()
+
+
+def fake_describe_diarizer():
+    """Stand in for diarize.describe_backend(): installed, and with no languages by nature."""
+    return {
+        "backend": "diarize",
+        "model": "nvidia/Nemotron-3-Diarization-stub",
+        "aliases": [],
+        "status": "installed",
+        "multilingual": None,
+        "accepts_language": False,
+        "languages_source": None,
+        "languages": None,
+        "max_speakers": 8,
+    }
 
 
 def fake_diarize_wav(bio, diarizer=None, threshold=None):
@@ -50,12 +86,15 @@ def fake_diarize_wav(bio, diarizer=None, threshold=None):
 fake_stt = types.ModuleType("libs.stt")
 fake_stt.get_model = fake_get_model
 fake_stt.get_stt_bio = fake_get_stt_bio
+fake_stt.describe_backend = fake_describe_whisper
+fake_stt.normalize_language_code = fake_normalize_language_code
 sys.modules["libs.stt"] = fake_stt
 libs.stt = fake_stt
 
 fake_diarize = types.ModuleType("libs.diarize")
 fake_diarize.get_diarizer = fake_get_diarizer
 fake_diarize.diarize_wav = fake_diarize_wav
+fake_diarize.describe_backend = fake_describe_diarizer
 sys.modules["libs.diarize"] = fake_diarize
 libs.diarize = fake_diarize
 

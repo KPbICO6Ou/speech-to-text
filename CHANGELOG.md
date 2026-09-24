@@ -3,6 +3,12 @@
 ### [Unreleased]
 
 #### Added
+- **`GET /api/models`: what this server actually carries.** One row per backend with its
+  own language list, its model id and aliases, and a three-valued `status` -
+  `loaded` when an instance waits in a pool, `installed` when the weights are on disk,
+  `absent` otherwise. Language lists are per backend and never merged: Whisper knows 99
+  or 100 codes depending on the checkpoint and the diarizer knows none, so a union would
+  be wrong for both. `python3 stt_client.py --list` prints the same catalogue.
 - **`POST /api/diarize`: who spoke when.** An optional second model,
   `nvidia/Nemotron-3-Diarization`, returns `{segments, speakers, elapsed}` where each
   segment is `{speaker, start, end}`. It produces no text; Whisper remains the only
