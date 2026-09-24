@@ -34,26 +34,37 @@ def test_module_imports_and_exposes_the_same_surface_as_whisper():
     assert not hasattr(module, "normalize_language_code")
 
 
-def test_tokens_join_without_inserted_spaces():
-    """Tokens are subwords; joining them with a separator would break every word."""
+def test_subword_tokens_join_into_one_word():
+    """Tokens are subwords; a token without leading whitespace continues the current word."""
     module = load_real_parakeet()
-    segments = module.group_tokens([token(" Hel", 0.0, 0.2), token("lo", 0.2, 0.4)])
-    assert len(segments) == 1
-    assert segments[0]["text"] == " Hello"
+    words = module.group_tokens([token(" Hel", 0.0, 0.2), token("lo", 0.2, 0.4)])
+    assert words == [{"start": 0.0, "end": 0.4, "text": " Hello"}]
 
 
-def test_a_silence_starts_a_new_segment():
-    """A gap longer than the threshold is a phrase boundary, which is what align.py joins on."""
+def test_whitespace_starts_a_new_word():
+    """Each word keeps its own times, which is what lets align.py follow a quick handover."""
     module = load_real_parakeet()
-    segments = module.group_tokens(
-        [token(" one", 0.0, 0.3), token(" two", 5.0, 5.4)],
-    )
-    assert [s["text"] for s in segments] == [" one", " two"]
-    assert segments[1]["start"] == 5.0
+    words = module.group_tokens([token(" so", 0.0, 0.3), token(" where", 0.3, 0.6), token(" green", 0.7, 1.0)])
+    assert [w["text"] for w in words] == [" so", " where", " green"]
+    assert [w["start"] for w in words] == [0.0, 0.3, 0.7]
 
 
-def test_no_tokens_is_no_segments():
-    """Silence transcribes to nothing rather than to an empty phrase."""
+def test_punctuation_stays_with_its_word():
+    """Punctuation arrives as its own zero-length token and belongs to the word before it."""
+    module = load_real_parakeet()
+    words = module.group_tokens([token(" hi", 0.0, 0.2), token(",", 0.2, 0.2), token(" there", 0.3, 0.5)])
+    assert [w["text"] for w in words] == [" hi,", " there"]
+
+
+def test_a_first_token_without_whitespace_still_starts_a_word():
+    """The decoder does not always open with a space, as the deployment host showed ("Р")."""
+    module = load_real_parakeet()
+    words = module.group_tokens([token("Р", 0.08, 0.16), token("е", 0.16, 0.32)])
+    assert words == [{"start": 0.08, "end": 0.32, "text": "Ре"}]
+
+
+def test_no_tokens_is_no_words():
+    """Silence transcribes to nothing rather than to an empty word."""
     assert load_real_parakeet().group_tokens([]) == []
 
 

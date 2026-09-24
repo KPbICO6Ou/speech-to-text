@@ -48,8 +48,27 @@ def is_overlapped(segment: dict[str, Any], speaker: int | None, turns: list[dict
     return False
 
 
+def continues_run(previous: dict[str, Any], segment: dict[str, Any], speaker: int | None, turns: list[dict[str, Any]]) -> bool:
+    """Whether a segment extends the previous run rather than starting a new one.
+
+    The same speaker is not enough. If somebody else held a turn in the gap between the two -
+    even a turn the transcriber produced no words for - merging them would claim the first
+    speaker talked straight through the second one, which the diarizer says did not happen.
+    """
+    if previous["speaker"] != speaker:
+        return False
+    for turn in turns:
+        if turn["speaker"] == speaker:
+            continue
+        if overlap_seconds(previous["end"], segment["start"], turn["start"], turn["end"]) > 0:
+            return False
+    return True
+
+
 def attribute_segments(segments: list[dict[str, Any]], turns: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attribute each transcription segment to a speaker, merging consecutive runs of one.
+
+    Runs merge only when nobody else spoke in between; see continues_run.
 
     `segments` are the transcriber's own phrases with their times; `turns` are the diarizer's
     output. Neither is modified. The result carries the joined text, the range it covers and
@@ -60,7 +79,7 @@ def attribute_segments(segments: list[dict[str, Any]], turns: list[dict[str, Any
         speaker = assign_speaker(segment, turns)
         overlapped = is_overlapped(segment, speaker, turns)
         text = segment["text"].strip()
-        if attributed and attributed[-1]["speaker"] == speaker:
+        if attributed and continues_run(attributed[-1], segment, speaker, turns):
             previous = attributed[-1]
             previous["end"] = round(float(segment["end"]), 2)
             previous["text"] = f"{previous['text']} {text}".strip()

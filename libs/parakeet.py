@@ -53,10 +53,6 @@ LANGUAGES = (
 )
 LANGUAGES_BY_MODEL = {"nvidia/parakeet-tdt-0.6b-v3": LANGUAGES}
 
-# Tokens arrive one subword at a time. A silence longer than this starts a new segment, which
-# is what keeps the output at the phrase granularity libs/align.py joins against.
-SEGMENT_GAP_SECONDS = 0.6
-
 
 def resolve_device(device: str | None = None) -> str:
     """Resolve "auto" to cuda/cpu and reject a device this machine cannot serve."""
@@ -147,21 +143,26 @@ def transcribe_tokens(bio: io.BytesIO, model: Any = None, device: str | None = N
 
 
 def group_tokens(tokens: list[dict]) -> list[dict]:
-    """Group token timestamps into phrase-level segments, split on a silence.
+    """Group subword tokens into words, each with its own start and end.
 
-    libs/align.py joins against phrases, not subwords: attributing one token at a time would
-    make a single word switch speakers mid-syllable. Tokens are concatenated exactly as the
-    decoder emitted them, because each already carries its own leading space where it has one.
+    Words, not phrases. Speakers hand over faster than any pause threshold that would still
+    keep one person's sentence together, so a phrase built by splitting on silence swallows the
+    handover and is then attributed whole to whoever spoke longer. A word is short enough to
+    belong to one speaker, and libs/align.py merges consecutive words back into runs.
+
+    A token that begins with whitespace starts a new word; anything else, including punctuation,
+    continues the current one. The tokens are concatenated exactly as the decoder emitted them.
     """
-    segments: list[dict] = []
+    words: list[dict] = []
     for token in tokens:
-        start, end, chunk = float(token["start"]), float(token["end"]), token["token"]
-        if segments and start - segments[-1]["end"] <= SEGMENT_GAP_SECONDS:
-            segments[-1]["end"] = max(segments[-1]["end"], end)
-            segments[-1]["text"] += chunk
+        chunk = token["token"]
+        start, end = float(token["start"]), float(token["end"])
+        if words and not chunk[:1].isspace():
+            words[-1]["end"] = max(words[-1]["end"], end)
+            words[-1]["text"] += chunk
             continue
-        segments.append({"start": start, "end": end, "text": chunk})
-    return segments
+        words.append({"start": start, "end": end, "text": chunk})
+    return words
 
 
 def get_stt_bio(
@@ -188,12 +189,12 @@ def get_stt_segments(
     device: str | None = None,
     language: str | None = None,
 ) -> list[dict]:
-    """Transcribe a WAV buffer and return its segments with their times, for the speaker join."""
+    """Transcribe a WAV buffer and return its words with their times, for the speaker join."""
     if language:
         logger.debug("Parakeet detects the language itself; ignoring the requested %s", language)
     unused_text, tokens = transcribe_tokens(bio, model=model, device=device)
     segments = group_tokens(tokens)
-    logger.debug("Transcribed %d segments from %d tokens", len(segments), len(tokens))
+    logger.debug("Transcribed %d words from %d tokens", len(segments), len(tokens))
     return segments
 
 

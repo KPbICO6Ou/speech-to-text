@@ -68,9 +68,11 @@ def test_consecutive_segments_of_one_speaker_merge():
 
 def test_merging_keeps_the_overlap_flag_of_any_part():
     """If any phrase of a merged run was contested, the run says so."""
+    # The interruption sits inside the second phrase, not in the gap before it, so the two
+    # phrases still merge; an interruption in the gap would correctly keep them apart.
     result = align.attribute_segments(
         [segment(0.0, 1.0), segment(1.1, 2.0)],
-        [turn(0, 0.0, 2.5), turn(1, 1.0, 1.5)],
+        [turn(0, 0.0, 2.5), turn(1, 1.5, 1.8)],
     )
     assert len(result) == 1
     assert result[0]["overlap"] is True
@@ -83,3 +85,35 @@ def test_count_speakers_ignores_the_unattributed():
         [turn(0, 0.0, 1.5)],
     )
     assert align.count_speakers(result) == 1
+
+
+def test_a_run_does_not_merge_across_another_speakers_turn():
+    """Speaker 1 talked between two phrases of speaker 0 without producing any words.
+
+    Found on the deployment host: the transcriber dropped every word of one voice, the two
+    remaining phrases of the other merged, and the result claimed one person spoke straight
+    through the other's turn.
+    """
+    result = align.attribute_segments(
+        [segment(0.1, 6.5, " first"), segment(12.7, 18.9, " second")],
+        [turn(0, 0.0, 6.5), turn(1, 6.9, 11.6), turn(0, 12.4, 18.9)],
+    )
+    assert [(r["speaker"], r["start"], r["end"]) for r in result] == [(0, 0.1, 6.5), (0, 12.7, 18.9)]
+
+
+def test_a_run_still_merges_when_nobody_else_spoke_in_the_gap():
+    """The fix must not stop ordinary merging of one speaker's consecutive phrases."""
+    result = align.attribute_segments(
+        [segment(0.0, 1.0, " one"), segment(1.5, 2.0, " two")],
+        [turn(0, 0.0, 2.5), turn(1, 5.0, 6.0)],
+    )
+    assert len(result) == 1
+    assert result[0]["text"] == "one two"
+
+
+def test_word_level_input_follows_a_quick_handover():
+    """Words, not phrases: a handover shorter than any pause threshold is still followed."""
+    words = [segment(0.0, 0.3, " so"), segment(0.3, 0.6, " where"), segment(0.7, 1.0, " green"), segment(1.0, 1.3, " now")]
+    turns = [turn(0, 0.0, 0.65), turn(1, 0.65, 1.4)]
+    result = align.attribute_segments(words, turns)
+    assert [(r["speaker"], r["text"]) for r in result] == [(0, "so where"), (1, "green now")]

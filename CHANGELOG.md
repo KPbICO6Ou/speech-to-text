@@ -74,6 +74,13 @@
   linked from the language switcher at the top of each README.
 
 #### Fixed
+- **A speaker-attributed transcript no longer merges across another speaker's turn.**
+  Found on the deployment host: when the transcriber produced no words for one voice, the
+  other voice's two phrases merged into one run that claimed a single person spoke straight
+  through the other's turn. A run now continues only if nobody else held a turn in the gap.
+- **Parakeet's timestamps are joined word by word.** They were grouped into phrases on a
+  0.6 s silence, and speakers hand over faster than that, so a phrase could swallow the
+  handover and be attributed whole to whoever spoke longer.
 - **Docker builds survive a slow network.** A GPU build on aarch64 failed partway through
   the 2.5 GB of CUDA wheels on uv's default 30 s read timeout; both images now allow 300 s.
   PyTorch also moved into a layer of its own ahead of `requirements.txt`, so editing the
