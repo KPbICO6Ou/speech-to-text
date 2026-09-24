@@ -3,6 +3,14 @@
 ### [Unreleased]
 
 #### Added
+- **NVIDIA Parakeet as a second transcription backend.** `STT_BACKEND=parakeet` serves
+  `nvidia/parakeet-tdt-0.6b-v3`: 25 European languages, self-detected, with native
+  token-level timestamps. Opt-in at build time (`--build-arg PARAKEET=true`) and needs no
+  git pin, unlike the diarizer: `parakeet_tdt` ships in released transformers. It takes no
+  `language` argument at all, and `GET /api/models` reports that rather than leaving a
+  caller to discover it. The variant most write-ups name, v2, ships only as a NeMo
+  checkpoint and is not installable against this project's pinned CUDA build of PyTorch;
+  neither is the overlap-aware Multitalker model.
 - **`POST /api/transcript`: who said what.** Diarization and transcription over the
   same audio, joined by time. Returns the attributed `segments`, the diarizer's raw
   `turns` beside them, the plain `text` and the speaker count. A phrase no turn covers

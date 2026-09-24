@@ -7,20 +7,21 @@ import traceback
 from typing import Any
 
 # Local imports
-from libs import config, diarize, model_pool, stt
+from libs import backends, config, diarize, model_pool
 
 logger = logging.getLogger(__name__)
 
 # A backend is only listed as available when it is switched on; the diarizer is optional and a
 # deployment that never wanted it should not advertise it.
-BACKENDS = ("whisper", "diarize")
+BACKENDS = ("whisper", "parakeet", "diarize")
 
 
-def describe_whisper() -> dict[str, Any]:
-    """The transcription row, upgraded to "loaded" when an instance is waiting in the pool."""
-    row = stt.describe_backend()
-    row["default"] = True
-    if not model_pool.MODEL_POOL.empty():
+def describe_transcriber(name: str) -> dict[str, Any]:
+    """A transcription row, upgraded to "loaded" when this backend is the active one and filled."""
+    row = backends.TRANSCRIBERS[name].describe_backend()
+    active = name == backends.transcriber_name()
+    row["default"] = active
+    if active and not model_pool.MODEL_POOL.empty():
         row["status"] = "loaded"
     return row
 
@@ -43,8 +44,8 @@ def describe_backend(name: str) -> dict[str, Any] | None:
     listing: a broken optional extra must not take the endpoint with it.
     """
     try:
-        if name == "whisper":
-            return describe_whisper()
+        if name in backends.TRANSCRIBERS:
+            return describe_transcriber(name)
         if name == "diarize":
             return describe_diarizer()
     except Exception as exc:
@@ -59,7 +60,7 @@ def list_models() -> dict[str, Any]:
     would be wrong for every backend taken on its own.
     """
     rows = [row for row in (describe_backend(name) for name in BACKENDS) if row is not None]
-    return {"default": config.STT_BACKEND, "models": rows}
+    return {"default": backends.transcriber_name(), "models": rows}
 
 
 def main():

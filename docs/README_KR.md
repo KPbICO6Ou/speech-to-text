@@ -113,6 +113,10 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 이 숫자들에 대해 두 가지를 알아 두어야 합니다. 먼저, 화자 채널마다 따로 점수를 매기기 때문에 구간이 서로 겹칠 수 있습니다. 두 사람이 동시에 말하면 같은 시간대를 덮는 구간이 두 개 생깁니다. 그리고 화자 번호는 이 녹음 하나 안에서의 순서이며, 먼저 말한 사람부터 매겨집니다. 신원이 아니므로 다음 요청에서는 같은 사람이 다른 번호를 받습니다. 화자에게 이름을 붙이려면 등록 단계가 필요한데, 이 서비스에는 그런 단계가 없습니다. 구분되는 화자는 최대 여덟 명입니다.
 
+전사 백엔드는 두 가지를 쓸 수 있습니다. **Whisper**가 기본값이며 `language`를 받습니다. **Parakeet**(`nvidia/parakeet-tdt-0.6b-v3`)은 유럽 언어 25종을 다루고 언어를 스스로 감지하므로 `language` 인자를 아예 받지 않으며, `GET /api/models`는 이를 `accepts_language: false`로 알려 줍니다. `PARAKEET=true`로 빌드한 이미지에서 `STT_BACKEND=parakeet`으로 선택합니다. 요청마다 고르는 것이 아니라 배포 시점에 정하는 선택인데, 상주 모델이 하나 더 늘어난다는 것은 모든 워커에 가중치 한 벌이 더 올라간다는 뜻이기 때문입니다.
+
+두 백엔드 모두 겹쳐 말하는 음성을 인식하지 못합니다. NVIDIA의 겹침 인식 모델은 NeMo 체크포인트로만 배포되는데, NeMo가 이 프로젝트의 CUDA 빌드와는 다른 PyTorch 버전을 고정하기 때문에 여기서는 설치할 수 없습니다.
+
 `POST /api/transcript`는 **누가 무엇을 말했는지**에 답합니다. 같은 오디오에 대해 화자 분리와 전사를 모두 수행한 뒤 시간을 기준으로 둘을 결합합니다. 화자 분리가 활성화되어 있어야 하며, 그렇지 않으면 `503`을 반환합니다.
 
 ```bash
@@ -173,6 +177,9 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | 기본 전사 언어                                     |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 모델 캐시 디렉터리(Docker에서는 `/opt/models`)     |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, 또는 `auto`                         |
+| `STT_BACKEND`           | `whisper`               | 전사 백엔드: `whisper` 또는 `parakeet`             |
+| `PARAKEET_MODEL`        | `nvidia/parakeet-tdt-0.6b-v3` | Parakeet 모델 ID                             |
+| `PARAKEET_DOWNLOAD_ROOT`| `models`                | Parakeet 모델 캐시 디렉터리                        |
 | `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` 활성화(`DIARIZE=true` 이미지 필요) |
 | `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | 화자 분리 모델 ID                          |
 | `DIARIZE_POOL_SIZE`     | `1`                     | 미리 로드되는 화자 분리기 인스턴스 수              |
@@ -198,6 +205,8 @@ speech-to-text/
 │   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
+│   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
+│   ├── backends.py      # which module transcribes, per STT_BACKEND
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build

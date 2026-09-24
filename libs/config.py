@@ -41,10 +41,14 @@ WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en").lower()
 WHISPER_DOWNLOAD_ROOT = os.getenv("WHISPER_DOWNLOAD_ROOT", "models")
 COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "auto").lower()
 
-# Which backend transcribes. Only "whisper" exists today; the name is published by
-# GET /api/models so a client can see it, and a second backend slots in here rather than
-# changing the response shape after clients have started reading it.
+# Which backend transcribes: "whisper" or "parakeet". A deploy-time choice, not a per-request
+# one - a second resident ASR would mean a second set of weights in every worker.
 STT_BACKEND = os.getenv("STT_BACKEND", "whisper")
+
+# Parakeet, the optional second transcription backend. It detects the language itself and
+# takes no language argument, which GET /api/models reports as accepts_language false.
+PARAKEET_MODEL = os.getenv("PARAKEET_MODEL", "nvidia/parakeet-tdt-0.6b-v3")
+PARAKEET_DOWNLOAD_ROOT = os.getenv("PARAKEET_DOWNLOAD_ROOT", "models")
 
 # Speaker diarization. Off by default: the model is an optional extra, it is documented for
 # NVIDIA GPUs only, and a deployment that does not want it should stay byte-identical to one

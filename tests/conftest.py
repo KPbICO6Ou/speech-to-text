@@ -88,7 +88,7 @@ def fake_diarize_wav(bio, diarizer=None, threshold=None):
     ]
 
 
-# Replace both backend modules so the tests need neither torch, whisper, soundfile nor
+# Replace every backend module so the tests need neither torch, whisper, soundfile nor
 # transformers installed. Must run before stt_server (and therefore libs.model_pool) is
 # imported anywhere.
 fake_stt = types.ModuleType("libs.stt")
@@ -99,6 +99,30 @@ fake_stt.get_stt_segments = fake_get_stt_segments
 fake_stt.normalize_language_code = fake_normalize_language_code
 sys.modules["libs.stt"] = fake_stt
 libs.stt = fake_stt
+
+
+def fake_describe_parakeet():
+    """Stand in for parakeet.describe_backend(): present but not installed, and language-blind."""
+    return {
+        "backend": "parakeet",
+        "model": "nvidia/parakeet-tdt-0.6b-v3",
+        "aliases": [],
+        "status": "absent",
+        "multilingual": True,
+        "accepts_language": False,
+        "languages_source": "model card, read 2026-09-24",
+        "languages": ["en", "ru"],
+        "default_language": None,
+    }
+
+
+fake_parakeet = types.ModuleType("libs.parakeet")
+fake_parakeet.get_model = fake_get_model
+fake_parakeet.get_stt_bio = fake_get_stt_bio
+fake_parakeet.get_stt_segments = fake_get_stt_segments
+fake_parakeet.describe_backend = fake_describe_parakeet
+sys.modules["libs.parakeet"] = fake_parakeet
+libs.parakeet = fake_parakeet
 
 fake_diarize = types.ModuleType("libs.diarize")
 fake_diarize.get_diarizer = fake_get_diarizer

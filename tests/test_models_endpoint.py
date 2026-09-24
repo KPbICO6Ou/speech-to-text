@@ -57,7 +57,36 @@ def test_languages_are_never_merged_across_backends(diarize_client):
     """Each row carries its own list; a union would be wrong for every backend on its own."""
     body = diarize_client.get("/api/models").get_json()
     assert "languages" not in body
-    assert {row["backend"] for row in body["models"]} == {"whisper", "diarize"}
+    assert {row["backend"] for row in body["models"]} == {"whisper", "parakeet", "diarize"}
+
+
+def test_an_inactive_transcriber_is_listed_but_not_default(client):
+    """Parakeet appears in the catalogue even when Whisper is the one serving requests."""
+    parakeet_row = rows_by_backend(client.get("/api/models").get_json())["parakeet"]
+    assert parakeet_row["default"] is False
+    assert parakeet_row["status"] == "absent"
+
+
+def test_a_self_detecting_backend_says_it_takes_no_language(client):
+    """accepts_language is what stops ?language= from being a promise nothing keeps."""
+    parakeet_row = rows_by_backend(client.get("/api/models").get_json())["parakeet"]
+    assert parakeet_row["accepts_language"] is False
+    assert parakeet_row["languages_source"].startswith("model card")
+
+
+def test_switching_the_backend_moves_the_default(client, monkeypatch):
+    """STT_BACKEND selects which row is the default and which the catalogue reports."""
+    monkeypatch.setattr(config, "STT_BACKEND", "parakeet")
+    body = client.get("/api/models").get_json()
+    assert body["default"] == "parakeet"
+    assert rows_by_backend(body)["parakeet"]["default"] is True
+    assert rows_by_backend(body)["whisper"]["default"] is False
+
+
+def test_an_unknown_backend_name_falls_back(client, monkeypatch):
+    """A typo in STT_BACKEND serves Whisper and says so, rather than failing to start."""
+    monkeypatch.setattr(config, "STT_BACKEND", "parrakeet")
+    assert client.get("/api/models").get_json()["default"] == "whisper"
 
 
 def test_a_backend_that_cannot_describe_itself_is_skipped(client, monkeypatch, stt_module):
@@ -72,7 +101,9 @@ def test_a_backend_that_cannot_describe_itself_is_skipped(client, monkeypatch, s
     resp = client.get("/api/models")
     assert resp.status_code == 200
     body = resp.get_json()
-    assert body["models"] == []
+    # The broken row is gone and the others survived it.
+    assert "whisper" not in rows_by_backend(body)
+    assert "parakeet" in rows_by_backend(body)
     assert "describe exploded" not in resp.get_data(as_text=True)
 
 

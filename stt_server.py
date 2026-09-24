@@ -15,7 +15,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Local imports
-from libs import align, audio, catalog, config, diarize, logs, model_pool, stt
+from libs import align, audio, backends, catalog, config, diarize, logs, model_pool
 from libs.auth import token_required
 from libs.errors import build_error_response, get_request_id, register_error_handlers
 
@@ -100,7 +100,12 @@ def resolve_language(language: str) -> str | None:
     """
     if language == AUTODETECT:
         return AUTODETECT
-    return stt.normalize_language_code(language)
+    transcriber = backends.transcriber()
+    # A backend that detects the language itself has no table to check against and no argument
+    # to honour, so the value is accepted and ignored rather than refused on a foreign table.
+    if not hasattr(transcriber, "normalize_language_code"):
+        return language
+    return transcriber.normalize_language_code(language)
 
 
 def convert_upload(bio):
@@ -183,7 +188,7 @@ def transcribe():
         return build_error_response("Service Unavailable", 503)
 
     try:
-        text = stt.get_stt_bio(wav_bio, model=model, language=language)
+        text = backends.transcriber().get_stt_bio(wav_bio, model=model, language=language)
         elapsed = time.monotonic() - start_time
         logger.info(
             "[%s] STT %s (%dkb) - %d chars (%.2fs)",
@@ -290,7 +295,7 @@ def run_transcription(wav_bio, language):
     model = model_pool.acquire_model()
     try:
         wav_bio.seek(0)
-        return stt.get_stt_segments(wav_bio, model=model, language=language)
+        return backends.transcriber().get_stt_segments(wav_bio, model=model, language=language)
     finally:
         model_pool.release_model(model)
 

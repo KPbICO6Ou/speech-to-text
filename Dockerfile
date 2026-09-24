@@ -47,6 +47,11 @@ RUN if [ "$DIARIZE" = "true" ]; then \
      && rm -rf /var/lib/apt/lists/*; \
     fi
 
+# Parakeet is opt-in at build time too, and needs no git: it ships in released transformers.
+ARG PARAKEET=false
+COPY requirements-parakeet.txt /opt/requirements-parakeet.txt
+RUN if [ "$PARAKEET" = "true" ]; then uv pip install --no-cache -r requirements-parakeet.txt; fi
+
 # The torch wheel above is a CUDA build chosen on purpose, and the resolutions that follow it
 # are unconstrained: anything depending on torch can replace it, and the failure surfaces much
 # later as cuBLAS and cuDNN errors that read like a driver problem. Fail the build instead.
@@ -54,6 +59,11 @@ RUN python3 -c "import torch; v = torch.__version__; assert '+cu130' in v, f'tor
 RUN if [ "$DIARIZE" = "true" ]; then \
         python3 -c "from transformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES; \
 assert 'nemotron3_diarization' in CONFIG_MAPPING_NAMES, 'this transformers build does not carry the diarization model'"; \
+    fi
+RUN if [ "$PARAKEET" = "true" ]; then \
+        python3 -c "from transformers import AutoModelForTDT; import transformers; \
+assert 'parakeet_tdt' in transformers.models.auto.configuration_auto.CONFIG_MAPPING_NAMES, \
+'this transformers build does not carry the parakeet model'"; \
     fi
 
 # The stt user is created with --no-create-home and only the bind-mounted dirs are chowned,

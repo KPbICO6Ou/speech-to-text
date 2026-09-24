@@ -9,7 +9,7 @@ import traceback
 from typing import Any
 
 # Local imports
-from libs import config, diarize, stt
+from libs import backends, config, diarize
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +37,11 @@ def init_model_pool(size: int | None = None) -> None:
     caller that changes `config.MODEL_POOL_SIZE` is actually obeyed.
     """
     size = config.MODEL_POOL_SIZE if size is None else size
-    logger.info("Initializing %d Whisper model instances...", size)
+    transcriber = backends.transcriber()
+    logger.info("Initializing %d %s model instances...", size, backends.transcriber_name())
     for number in range(1, size + 1):
         start_time = time.monotonic()
-        MODEL_POOL.put(stt.get_model())
+        MODEL_POOL.put(transcriber.get_model())
         logger.info("Model #%d ready (%.2fs)", number, time.monotonic() - start_time)
     logger.info("Model pool ready: %d instances", MODEL_POOL.qsize())
 

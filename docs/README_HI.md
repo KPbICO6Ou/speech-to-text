@@ -113,6 +113,10 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 इन संख्याओं के बारे में दो बातें। अंतराल एक-दूसरे पर ओवरलैप कर सकते हैं, क्योंकि हर स्पीकर चैनल का मूल्यांकन अलग से होता है, इसलिए एक साथ बोलते दो लोग समान सेकंडों को कवर करने वाले दो अंतराल बनाते हैं। और लेबल केवल इसी एक रिकॉर्डिंग में स्थितियाँ हैं, इस क्रम में कि कौन पहले बोला: वे पहचान नहीं हैं, और अगले अनुरोध में उसी व्यक्ति को अलग संख्या मिलती है। किसी स्पीकर का नाम बताने के लिए एक एनरोलमेंट चरण चाहिए, जो इस सेवा में नहीं है। अधिकतम आठ स्पीकर अलग-अलग पहचाने जाते हैं।
 
+दो ट्रांसक्रिप्शन बैकएंड उपलब्ध हैं। **Whisper** डिफ़ॉल्ट है और `language` स्वीकार करता है। **Parakeet** (`nvidia/parakeet-tdt-0.6b-v3`) 25 यूरोपीय भाषाओं को कवर करता है, भाषा स्वयं पहचान लेता है और इसलिए कोई `language` तर्क लेता ही नहीं, जिसे `GET /api/models` `accepts_language: false` के रूप में बताता है। इसे `PARAKEET=true` के साथ बनाई गई इमेज पर `STT_BACKEND=parakeet` से चुनें; यह डिप्लॉय-समय का चयन है, प्रति-अनुरोध का नहीं, क्योंकि दूसरा स्थायी रूप से लोड मॉडल हर वर्कर में वेट्स का दूसरा सेट होगा।
+
+कोई भी बैकएंड ओवरलैप-सजग (overlap-aware) नहीं है। NVIDIA का ओवरलैप-सजग मॉडल केवल एक NeMo चेकपॉइंट के रूप में आता है, और NeMo इस प्रोजेक्ट के CUDA बिल्ड से भिन्न PyTorch को पिन करता है, इसलिए यहाँ उसे इंस्टॉल नहीं किया जा सकता।
+
 `POST /api/transcript` यह उत्तर देता है कि **किसने क्या कहा**: यह एक ही ऑडियो पर डायराइज़ेशन और ट्रांसक्रिप्शन दोनों चलाता है और उन्हें समय के आधार पर जोड़ता है। इसके लिए डायराइज़ेशन सक्षम होना चाहिए, अन्यथा यह `503` लौटाता है।
 
 ```bash
@@ -173,6 +177,9 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | डिफ़ॉल्ट ट्रांसक्रिप्शन भाषा                          |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | मॉडल कैश डायरेक्टरी (Docker में `/opt/models`)        |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, या `auto`                             |
+| `STT_BACKEND`           | `whisper`               | ट्रांसक्रिप्शन बैकएंड: `whisper` या `parakeet`         |
+| `PARAKEET_MODEL`        | `nvidia/parakeet-tdt-0.6b-v3` | Parakeet मॉडल id                                    |
+| `PARAKEET_DOWNLOAD_ROOT`| `models`                | Parakeet मॉडल कैश डायरेक्टरी                         |
 | `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` सक्षम करें (`DIARIZE=true` इमेज चाहिए) |
 | `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | डायराइज़ेशन मॉडल id                                  |
 | `DIARIZE_POOL_SIZE`     | `1`                     | पहले से लोड किए गए डायराइज़र इंस्टेंस                 |
@@ -198,6 +205,8 @@ speech-to-text/
 │   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
+│   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
+│   ├── backends.py      # which module transcribes, per STT_BACKEND
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build

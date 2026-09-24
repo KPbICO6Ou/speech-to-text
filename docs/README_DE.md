@@ -113,6 +113,10 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 Zwei Hinweise zu diesen Zahlen. Die Sprechbeiträge dürfen sich überlappen, denn jeder Sprecherkanal wird für sich bewertet, sodass zwei gleichzeitig sprechende Personen zwei Beiträge über dieselben Sekunden erzeugen. Und die Nummern sind Positionen innerhalb dieser einen Aufnahme, geordnet danach, wer zuerst gesprochen hat: Sie sind keine Identitäten, und dieselbe Person erhält bei der nächsten Anfrage eine andere Nummer. Einen Sprecher zu benennen erfordert einen Enrollment-Schritt, den dieser Dienst nicht hat. Es werden höchstens acht Sprecher unterschieden.
 
+Es stehen zwei Transkriptions-Backends zur Verfügung. **Whisper** ist der Standard und akzeptiert ein `language`. **Parakeet** (`nvidia/parakeet-tdt-0.6b-v3`) deckt 25 europäische Sprachen ab, erkennt die Sprache selbst und nimmt daher überhaupt kein `language`-Argument entgegen, was `GET /api/models` als `accepts_language: false` meldet. Wählen Sie es mit `STT_BACKEND=parakeet` auf einem mit `PARAKEET=true` gebauten Image; das ist eine Entscheidung zur Deployment-Zeit und keine pro Anfrage, denn ein zweites dauerhaft geladenes Modell würde einen zweiten Satz Gewichte in jedem Worker bedeuten.
+
+Keines der beiden Backends ist auf überlappende Sprache ausgelegt. NVIDIAs Modell für überlappende Sprache wird ausschließlich als NeMo-Checkpoint ausgeliefert, und NeMo legt eine andere PyTorch-Version fest als der CUDA-Build dieses Projekts, sodass es sich hier nicht installieren lässt.
+
 `POST /api/transcript` beantwortet **wer was gesagt hat**: Der Endpunkt führt Diarisierung und Transkription über demselben Audio aus und verbindet beides über die Zeit. Er benötigt eine aktivierte Diarisierung und antwortet andernfalls mit `503`.
 
 ```bash
@@ -173,6 +177,9 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | Standardsprache der Transkription                   |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | Verzeichnis des Modell-Caches (`/opt/models` in Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` oder `auto`                            |
+| `STT_BACKEND`           | `whisper`               | Transkriptions-Backend: `whisper` oder `parakeet`   |
+| `PARAKEET_MODEL`        | `nvidia/parakeet-tdt-0.6b-v3` | ID des Parakeet-Modells                             |
+| `PARAKEET_DOWNLOAD_ROOT`| `models`                | Verzeichnis des Parakeet-Modell-Caches              |
 | `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` aktivieren (erfordert ein `DIARIZE=true`-Image) |
 | `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | ID des Diarisierungsmodells                         |
 | `DIARIZE_POOL_SIZE`     | `1`                     | Anzahl vorab geladener Diarisierungs-Instanzen      |
@@ -198,6 +205,8 @@ speech-to-text/
 │   ├── catalog.py       # was dieser Server kann, für GET /api/models
 │   ├── align.py         # verbindet Transkriptionssegmente mit Sprechbeiträgen
 │   ├── stt.py           # Whisper-Wrapper
+│   ├── parakeet.py      # NVIDIA-Parakeet-Wrapper, der zweite Transkribierer
+│   ├── backends.py      # welches Modul transkribiert, je nach STT_BACKEND
 │   └── diarize.py       # Sprecherdiarisierung (wer wann gesprochen hat, kein Text)
 ├── Dockerfile           # GPU-Build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU-Build

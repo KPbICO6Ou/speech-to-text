@@ -6,6 +6,8 @@ services:
       args:
         # Build the diarization backend into the image: DIARIZE=true docker compose up --build
         DIARIZE: "${DIARIZE:-false}"
+        # Build the Parakeet backend into the image: PARAKEET=true docker compose up --build
+        PARAKEET: "${PARAKEET:-false}"
     image: stt_server_gpu
     pull_policy: build
     container_name: stt_server
@@ -35,6 +37,9 @@ services:
       # pinning it would silently ignore the value in .env, which is where every document says
       # to put it. It is a runtime switch; DIARIZE above is the build arg. Turning it on for an
       # image built without the backend answers 503 and logs why, rather than failing to start.
+      # STT_BACKEND selects the transcriber; parakeet needs a PARAKEET=true image.
+      STT_BACKEND: "${STT_BACKEND:-whisper}"
+      PARAKEET_DOWNLOAD_ROOT: "/opt/models"
       DIARIZE_POOL_SIZE: "1"
       # Pinned to the mount for the same reason WHISPER_DOWNLOAD_ROOT is: entrypoint.sh chowns
       # exactly these paths, and a cache anywhere else is a PermissionError for the stt user.

@@ -113,6 +113,10 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 
 关于这些数字有两点说明。时间区间可能重叠，因为每个说话人通道都是单独评分的，所以两个人同时说话会产生覆盖相同秒数的两个区间。而这些编号只是这一次录音中的位置，按谁先开口排序：它们不是身份标识，同一个人在下一次请求中会得到不同的编号。要给说话人命名，需要一个本服务所不具备的声纹注册步骤。最多可区分八个说话人。
 
+有两种转录后端可供选择。**Whisper** 是默认后端，接受 `language` 参数。**Parakeet**（`nvidia/parakeet-tdt-0.6b-v3`）覆盖 25 种欧洲语言，它自行检测语言，因此完全不接受 `language` 参数，`GET /api/models` 会把这一点报告为 `accepts_language: false`。要选用它，需要在以 `PARAKEET=true` 构建的镜像上设置 `STT_BACKEND=parakeet`；这是部署时的选择，而不是逐请求的选择，因为多一个常驻模型就意味着每个工作进程中都要多出一套权重。
+
+两个后端都不支持重叠语音。NVIDIA 支持重叠语音的模型只以 NeMo checkpoint 的形式发布，而 NeMo 锁定的 PyTorch 版本与本项目的 CUDA 构建不同，因此无法在这里安装。
+
 `POST /api/transcript` 回答的是**谁说了什么**：它对同一段音频同时运行说话人分离和转录，并按时间将二者连接起来。它需要启用说话人分离，否则返回 `503`。
 
 ```bash
@@ -173,6 +177,9 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | 默认转录语言                                       |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 模型缓存目录（Docker 中为 `/opt/models`）          |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda` 或 `auto`                            |
+| `STT_BACKEND`           | `whisper`               | 转录后端：`whisper` 或 `parakeet`                  |
+| `PARAKEET_MODEL`        | `nvidia/parakeet-tdt-0.6b-v3` | Parakeet 模型 id                                   |
+| `PARAKEET_DOWNLOAD_ROOT` | `models`                | Parakeet 模型缓存目录                              |
 | `DIARIZE_ENABLED`       | `false`                 | 启用 `POST /api/diarize`（需 `DIARIZE=true` 镜像） |
 | `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | 说话人分离模型 id                                  |
 | `DIARIZE_POOL_SIZE`     | `1`                     | 预加载的说话人分离实例数量                         |
@@ -198,6 +205,8 @@ speech-to-text/
 │   ├── catalog.py       # what the server can do, for GET /api/models
 │   ├── align.py         # joins transcription segments to speaker turns
 │   ├── stt.py           # Whisper wrapper
+│   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
+│   ├── backends.py      # which module transcribes, per STT_BACKEND
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build
