@@ -25,12 +25,19 @@ ENV UV_LINK_MODE=copy
 
 RUN uv venv /opt/venv --python python3
 
-COPY requirements.txt /opt/requirements.txt
-# Install GPU-accelerated PyTorch and other dependencies via uv.
+# The CUDA wheels run to about 2.5 GB, and on a slow link uv's default 30 s read timeout has
+# failed a build here partway through them.
+ENV UV_HTTP_TIMEOUT=300
+
+# PyTorch in a layer of its own, ahead of requirements.txt. When both were one RUN after the
+# COPY, editing a comment in requirements.txt threw away the cached CUDA wheels and sent the
+# next build back to the network for all of them.
 RUN uv pip install --no-cache \
         --extra-index-url https://download.pytorch.org/whl/cu130 \
-        torch==2.10.0+cu130 torchaudio==2.10.0+cu130 \
- && uv pip install --no-cache -r requirements.txt
+        torch==2.10.0+cu130 torchaudio==2.10.0+cu130
+
+COPY requirements.txt /opt/requirements.txt
+RUN uv pip install --no-cache -r requirements.txt
 
 # Parakeet is opt-in at build time too, and needs no git: it ships in released transformers.
 # It is installed BEFORE the diarizer on purpose. Parakeet asks for transformers>=5.17.0 and the

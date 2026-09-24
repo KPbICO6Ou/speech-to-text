@@ -74,6 +74,10 @@
   linked from the language switcher at the top of each README.
 
 #### Fixed
+- **Docker builds survive a slow network.** A GPU build on aarch64 failed partway through
+  the 2.5 GB of CUDA wheels on uv's default 30 s read timeout; both images now allow 300 s.
+  PyTorch also moved into a layer of its own ahead of `requirements.txt`, so editing the
+  requirements no longer discards the cached wheels and sends the build back for all of them.
 - **The README named the wrong default model.** It said `turbo`; without `WHISPER_MODEL`
   set, the server loads `small.en`, and only `.env.example` selects `turbo`. The README and
   its translations now say so, and the Models section lists the real language counts

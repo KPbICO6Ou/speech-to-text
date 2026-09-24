@@ -17,12 +17,17 @@ ENV UV_LINK_MODE=copy
 # uv installs into the system Python interpreter inside the image (no venv).
 ENV UV_SYSTEM_PYTHON=1
 
-COPY requirements.txt /opt/requirements.txt
+# Same reasons as the GPU image: a longer read timeout for large wheels, and PyTorch in its own
+# layer so a requirements edit does not re-download it.
+ENV UV_HTTP_TIMEOUT=300
+
 # Install CPU-only torch/torchaudio wheels (smaller, no CUDA libs) via uv.
 RUN uv pip install --system --no-cache \
         --extra-index-url https://download.pytorch.org/whl/cpu \
-        torch torchaudio \
- && uv pip install --system --no-cache -r requirements.txt
+        torch torchaudio
+
+COPY requirements.txt /opt/requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 
 COPY stt_server.py stt_client.py gu.py /opt/
 COPY libs /opt/libs
