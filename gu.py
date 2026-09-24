@@ -61,9 +61,12 @@ def post_fork(server, worker):
         fcntl.flock(lock_file, fcntl.LOCK_EX)
         logger.info("Worker %s (pid %s): lock acquired, loading model(s)...", worker.age, worker.pid)
         # Imported here, not at module scope: torch must never be loaded in the master.
-        from libs.model_pool import init_model_pool
+        from libs.model_pool import init_diarizer_pool, init_model_pool
 
         init_model_pool()
+        # Inside the same lock on purpose: both models download to disk on first run, and two
+        # workers racing to fetch them is the problem this lock exists to prevent.
+        init_diarizer_pool()
 
     elapsed = time.monotonic() - start_time
     logger.info("Worker %s (pid %s): model pool ready (%.2fs)", worker.age, worker.pid, elapsed)

@@ -71,6 +71,18 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`POST /api/diarize` は **誰がいつ話したか** だけに答え、それ以外は返しません。話者番号付きの時間範囲を返すだけで、テキストは決して返しません。`DIARIZE=true` でビルドしたイメージ上で `DIARIZE_ENABLED` を設定しない限り無効で、その場合は `503` を返します。
+
+```bash
+curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
+```
+
+```json
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+```
+
+これらの数値について 2 点あります。話者チャンネルごとに個別にスコアリングされるため、発話区間は重なることがあります。2 人が同時に話せば、同じ秒数を覆う 2 つの区間が生成されます。もう 1 点、ラベルはこの録音 1 件の中での位置であり、最初に話した順に並びます。話者の同一性を表すものではなく、同じ人物でも次のリクエストでは別の番号になります。話者に名前を付けるには登録（エンロールメント）の工程が必要ですが、このサービスにはありません。区別できる話者は最大 8 人です。
+
 アップロードは `MAX_CONTENT_LENGTH_MB`（デフォルトで 10 MB）に制限されており、それより大きいボディは `413` を返します。
 
 エラーは統一されています。`error` は一般的なカテゴリを伝え、`request_id` はレスポンスとサーバーログを関連付けます。完全な例外はサーバーログに記録されます。
@@ -110,6 +122,11 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | デフォルトの文字起こし言語                            |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | モデルキャッシュのディレクトリ（Docker では `/opt/models`） |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda`、または `auto`                         |
+| `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` を有効化（`DIARIZE=true` イメージが必要） |
+| `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | 話者ダイアライゼーションのモデル ID                   |
+| `DIARIZE_POOL_SIZE`     | `1`                     | 事前に読み込むダイアライザーインスタンスの数          |
+| `DIARIZE_DOWNLOAD_ROOT` | `models`                | ダイアライゼーションモデルのキャッシュディレクトリ    |
+| `DIARIZE_THRESHOLD`     | `0.5`                   | 発話とみなす話者アクティビティの確率                  |
 | `STT_URL`               | `http://localhost:5099` | クライアント: サーバーのベース URL                    |
 | `STT_TOKEN`             | （空）                   | クライアント: サーバーに送るベアラートークン           |
 
@@ -126,8 +143,9 @@ speech-to-text/
 │   ├── errors.py        # uniform JSON error responses and Flask error handlers
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
-│   ├── model_pool.py    # pool of pre-loaded Whisper instances
-│   └── stt.py           # Whisper wrapper
+│   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── stt.py           # Whisper wrapper
+│   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build
 ├── docs/                # README translations

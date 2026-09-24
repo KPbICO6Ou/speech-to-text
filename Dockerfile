@@ -32,6 +32,21 @@ RUN uv pip install --no-cache \
         torch==2.10.0+cu130 torchaudio==2.10.0+cu130 \
  && uv pip install --no-cache -r requirements.txt
 
+# Speaker diarization is opt-in at build time: `--build-arg DIARIZE=true`. Off, the image is
+# what it was before diarization existed.
+ARG DIARIZE=false
+COPY requirements-diarize.txt /opt/requirements-diarize.txt
+RUN if [ "$DIARIZE" = "true" ]; then uv pip install --no-cache -r requirements-diarize.txt; fi
+
+# The torch wheel above is a CUDA build chosen on purpose, and the resolutions that follow it
+# are unconstrained: anything depending on torch can replace it, and the failure surfaces much
+# later as cuBLAS and cuDNN errors that read like a driver problem. Fail the build instead.
+RUN python3 -c "import torch; v = torch.__version__; assert '+cu130' in v, f'torch was replaced by {v}'"
+RUN if [ "$DIARIZE" = "true" ]; then \
+        python3 -c "from transformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES; \
+assert 'nemotron3_diarization' in CONFIG_MAPPING_NAMES, 'this transformers build does not carry the diarization model'"; \
+    fi
+
 COPY stt_server.py stt_client.py gu.py /opt/
 COPY libs /opt/libs
 RUN mkdir -p /opt/models /opt/logs /opt/recs

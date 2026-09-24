@@ -26,6 +26,10 @@ services:
       MKL_NUM_THREADS: "1"
       # Force CPU backend.
       COMPUTE_TYPE: "cpu"
+      # Diarization stays off here. The model card names Ampere, Ada, Hopper and Blackwell and
+      # never mentions CPU, and nobody has measured this path; a CPU build is a follow-up with
+      # numbers behind it, not an assumption.
+      DIARIZE_ENABLED: "false"
     ports:
       - "${STT_PORT:-5099}:${STT_PORT:-5099}"
     volumes:

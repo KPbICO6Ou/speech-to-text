@@ -16,7 +16,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Local imports
-from libs import audio, config, logs, model_pool, stt
+from libs import audio, config, diarize, logs, model_pool, stt
 from libs.auth import token_required
 from libs.errors import build_error_response, get_request_id, register_error_handlers
 
@@ -97,6 +97,24 @@ def is_valid_language(language: str) -> bool:
     return language == "auto" or bool(LANGUAGE_RE.match(language))
 
 
+def convert_upload(bio):
+    """Turn an uploaded buffer into a 16 kHz mono WAV, or None when it is not decodable audio.
+
+    Owns the logging of the failure so both routes can treat it as a plain None check.
+    """
+    try:
+        return audio.convert_to_wav(bio)
+    except Exception as exc:
+        logger.error(
+            "[%s] Audio conversion failed: %s: %s\n%s",
+            get_request_id(),
+            type(exc).__name__,
+            exc,
+            traceback.format_exc(),
+        )
+        return None
+
+
 @app.route("/api/health", methods=["GET"])
 def health():
     """Report service liveness and model pool occupancy; available=0 means all models are busy."""
@@ -128,16 +146,8 @@ def transcribe():
     if language is not None and not is_valid_language(language):
         return build_error_response("Invalid language", 400)
 
-    try:
-        wav_bio = audio.convert_to_wav(bio)
-    except Exception as exc:
-        logger.error(
-            "[%s] Audio conversion failed: %s: %s\n%s",
-            get_request_id(),
-            type(exc).__name__,
-            exc,
-            traceback.format_exc(),
-        )
+    wav_bio = convert_upload(bio)
+    if wav_bio is None:
         return build_error_response("Invalid audio data", 400)
 
     try:
@@ -171,6 +181,70 @@ def transcribe():
         model_pool.release_model(model)
 
 
+@app.route("/api/diarize", methods=["POST"])
+@token_required
+def diarize_speakers():
+    """Report who spoke when in an uploaded audio file. No text: this endpoint returns time ranges.
+
+    Accepts the same body shapes as ``/api/stt``: multipart/form-data with field ``file``, or a
+    raw binary body with Content-Type audio/*.
+
+    Turns may overlap, because each speaker channel is scored independently, and the labels are
+    positions in this recording ordered by arrival, not identities: the same person gets a
+    different number in the next request.
+
+    Returns::
+        {"segments": [{"speaker": 0, "start": 0.51, "end": 12.62}], "speakers": 2, "elapsed": 1.23}
+    """
+    if not config.DIARIZE_ENABLED:
+        logger.warning("[%s] Diarization requested while disabled", get_request_id())
+        return build_error_response("Diarization disabled", 503)
+
+    start_time = time.monotonic()
+
+    upload = read_audio_upload()
+    if upload is None:
+        return build_error_response("No audio data", 400)
+    bio, filename = upload
+    size_kb = len(bio.getvalue()) // 1024
+
+    wav_bio = convert_upload(bio)
+    if wav_bio is None:
+        return build_error_response("Invalid audio data", 400)
+
+    try:
+        diarizer = model_pool.acquire_diarizer()
+    except queue.Empty:
+        logger.warning("[%s] Diarizer pool exhausted: %s", get_request_id(), model_pool.get_pool_status())
+        return build_error_response("Service Unavailable", 503)
+
+    try:
+        segments = diarize.diarize_wav(wav_bio, diarizer=diarizer)
+        elapsed = time.monotonic() - start_time
+        speakers = len({segment["speaker"] for segment in segments})
+        logger.info(
+            "[%s] Diarize %s (%dkb) - %d turns, %d speakers (%.2fs)",
+            get_request_id(),
+            filename,
+            size_kb,
+            len(segments),
+            speakers,
+            elapsed,
+        )
+        return jsonify({"segments": segments, "speakers": speakers, "elapsed": round(elapsed, 3)}), 200
+    except Exception as exc:
+        logger.error(
+            "[%s] Diarization failed: %s: %s\n%s",
+            get_request_id(),
+            type(exc).__name__,
+            exc,
+            traceback.format_exc(),
+        )
+        return build_error_response("Diarization failed", 500)
+    finally:
+        model_pool.release_diarizer(diarizer)
+
+
 def log_auth_mode() -> None:
     """State at startup whether the endpoint is protected, so it is never a surprise."""
     if config.STT_TOKENS:
@@ -202,6 +276,7 @@ def run_server() -> None:
 def main():
     """Entry point: fill the model pool, then serve."""
     model_pool.init_model_pool()
+    model_pool.init_diarizer_pool()
     log_auth_mode()
     run_server()
 

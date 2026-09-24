@@ -71,6 +71,18 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`POST /api/diarize` 回答的是**谁在什么时候说话**，仅此而已：它返回带说话人编号的时间区间，而绝不返回文本。除非在以 `DIARIZE=true` 构建的镜像上设置了 `DIARIZE_ENABLED`，否则该接口处于关闭状态，并返回 `503`。
+
+```bash
+curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
+```
+
+```json
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+```
+
+关于这些数字有两点说明。时间区间可能重叠，因为每个说话人通道都是单独评分的，所以两个人同时说话会产生覆盖相同秒数的两个区间。而这些编号只是这一次录音中的位置，按谁先开口排序：它们不是身份标识，同一个人在下一次请求中会得到不同的编号。要给说话人命名，需要一个本服务所不具备的声纹注册步骤。最多可区分八个说话人。
+
 上传大小上限为 `MAX_CONTENT_LENGTH_MB`（默认 10 MB）；更大的请求体返回 `413`。
 
 错误格式统一：`error` 携带一个通用类别，`request_id` 将响应与服务器日志关联起来，完整的异常信息记录在日志中。
@@ -110,6 +122,11 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | 默认转录语言                                       |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 模型缓存目录（Docker 中为 `/opt/models`）          |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda` 或 `auto`                            |
+| `DIARIZE_ENABLED`       | `false`                 | 启用 `POST /api/diarize`（需 `DIARIZE=true` 镜像） |
+| `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | 说话人分离模型 id                                  |
+| `DIARIZE_POOL_SIZE`     | `1`                     | 预加载的说话人分离实例数量                         |
+| `DIARIZE_DOWNLOAD_ROOT` | `models`                | 说话人分离模型缓存目录                             |
+| `DIARIZE_THRESHOLD`     | `0.5`                   | 判定为语音的说话人活动概率                         |
 | `STT_URL`               | `http://localhost:5099` | 客户端：服务器基础 URL                             |
 | `STT_TOKEN`             | （空）                  | 客户端：发送给服务器的 bearer 令牌                 |
 
@@ -126,8 +143,9 @@ speech-to-text/
 │   ├── errors.py        # uniform JSON error responses and Flask error handlers
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
-│   ├── model_pool.py    # pool of pre-loaded Whisper instances
-│   └── stt.py           # Whisper wrapper
+│   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── stt.py           # Whisper wrapper
+│   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build
 ├── docs/                # README translations

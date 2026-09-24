@@ -71,6 +71,18 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`POST /api/diarize` beantwortet **wer wann gesprochen hat**, und sonst nichts: Der Endpunkt gibt Zeitbereiche mit einer Sprechernummer zurück, niemals Text. Er ist deaktiviert, sofern nicht `DIARIZE_ENABLED` auf einem mit `DIARIZE=true` gebauten Image gesetzt ist; andernfalls antwortet er mit `503`.
+
+```bash
+curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
+```
+
+```json
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+```
+
+Zwei Hinweise zu diesen Zahlen. Die Sprechbeiträge dürfen sich überlappen, denn jeder Sprecherkanal wird für sich bewertet, sodass zwei gleichzeitig sprechende Personen zwei Beiträge über dieselben Sekunden erzeugen. Und die Nummern sind Positionen innerhalb dieser einen Aufnahme, geordnet danach, wer zuerst gesprochen hat: Sie sind keine Identitäten, und dieselbe Person erhält bei der nächsten Anfrage eine andere Nummer. Einen Sprecher zu benennen erfordert einen Enrollment-Schritt, den dieser Dienst nicht hat. Es werden höchstens acht Sprecher unterschieden.
+
 Uploads sind auf `MAX_CONTENT_LENGTH_MB` begrenzt (standardmäßig 10 MB); ein größerer Body gibt `413` zurück.
 
 Fehler sind einheitlich: `error` trägt eine generische Kategorie, und `request_id` verknüpft die Antwort mit dem Server-Log, in dem die vollständige Ausnahme festgehalten wird.
@@ -110,6 +122,11 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | Standardsprache der Transkription                   |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | Verzeichnis des Modell-Caches (`/opt/models` in Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` oder `auto`                            |
+| `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` aktivieren (erfordert ein `DIARIZE=true`-Image) |
+| `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | ID des Diarisierungsmodells                         |
+| `DIARIZE_POOL_SIZE`     | `1`                     | Anzahl vorab geladener Diarisierungs-Instanzen      |
+| `DIARIZE_DOWNLOAD_ROOT` | `models`                | Verzeichnis des Diarisierungsmodell-Caches          |
+| `DIARIZE_THRESHOLD`     | `0.5`                   | Sprecheraktivitäts-Wahrscheinlichkeit, die als Sprache zählt |
 | `STT_URL`               | `http://localhost:5099` | Client: Basis-URL des Servers                       |
 | `STT_TOKEN`             | (empty)                 | Client: an den Server gesendetes Bearer-Token       |
 
@@ -126,8 +143,9 @@ speech-to-text/
 │   ├── errors.py        # einheitliche JSON-Fehlerantworten und Flask-Error-Handler
 │   ├── auth.py          # optionale Authentifizierung per statischem Token
 │   ├── audio.py         # Upload -> Konvertierung nach 16 kHz Mono-WAV
-│   ├── model_pool.py    # Pool vorgeladener Whisper-Instanzen
-│   └── stt.py           # Whisper-Wrapper
+│   ├── model_pool.py    # Pools vorgeladener Whisper- und Diarisierungs-Instanzen
+│   ├── stt.py           # Whisper-Wrapper
+│   └── diarize.py       # Sprecherdiarisierung (wer wann gesprochen hat, kein Text)
 ├── Dockerfile           # GPU-Build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU-Build
 ├── docs/                # README-Übersetzungen

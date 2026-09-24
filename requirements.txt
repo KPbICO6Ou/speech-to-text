@@ -7,6 +7,9 @@
 # torch and torchaudio are NOT here: the CUDA build differs per image and is
 # pinned in Dockerfile / Dockerfile-cpu and in requirements-gpu.txt /
 # requirements-cpu.txt.
+#
+# The diarization backend is not here either: it is opt-in, and lives in
+# requirements-diarize.txt, installed only for a `--build-arg DIARIZE=true` image.
 
 # Web framework
 flask>=3.0.0

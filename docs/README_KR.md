@@ -71,6 +71,18 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`POST /api/diarize`는 **누가 언제 말했는지**만 답하며, 그 외에는 아무것도 반환하지 않습니다. 화자 번호가 붙은 시간 구간을 돌려줄 뿐, 텍스트는 절대 반환하지 않습니다. `DIARIZE=true`로 빌드한 이미지에서 `DIARIZE_ENABLED`가 설정되어 있지 않으면 비활성 상태이며, 그 경우 `503`을 반환합니다.
+
+```bash
+curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
+```
+
+```json
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+```
+
+이 숫자들에 대해 두 가지를 알아 두어야 합니다. 먼저, 화자 채널마다 따로 점수를 매기기 때문에 구간이 서로 겹칠 수 있습니다. 두 사람이 동시에 말하면 같은 시간대를 덮는 구간이 두 개 생깁니다. 그리고 화자 번호는 이 녹음 하나 안에서의 순서이며, 먼저 말한 사람부터 매겨집니다. 신원이 아니므로 다음 요청에서는 같은 사람이 다른 번호를 받습니다. 화자에게 이름을 붙이려면 등록 단계가 필요한데, 이 서비스에는 그런 단계가 없습니다. 구분되는 화자는 최대 여덟 명입니다.
+
 업로드는 `MAX_CONTENT_LENGTH_MB`(기본 10 MB)로 제한되며, 더 큰 본문은 `413`을 반환합니다.
 
 오류는 형식이 일관됩니다. `error`는 일반적인 범주를 담고, `request_id`는 전체 예외가 기록된 서버 로그와 응답을 연결합니다.
@@ -110,6 +122,11 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | 기본 전사 언어                                     |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 모델 캐시 디렉터리(Docker에서는 `/opt/models`)     |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, 또는 `auto`                         |
+| `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` 활성화(`DIARIZE=true` 이미지 필요) |
+| `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | 화자 분리 모델 ID                          |
+| `DIARIZE_POOL_SIZE`     | `1`                     | 미리 로드되는 화자 분리기 인스턴스 수              |
+| `DIARIZE_DOWNLOAD_ROOT` | `models`                | 화자 분리 모델 캐시 디렉터리                       |
+| `DIARIZE_THRESHOLD`     | `0.5`                   | 음성으로 간주하는 화자 활동 확률                   |
 | `STT_URL`               | `http://localhost:5099` | 클라이언트: 서버 기본 URL                          |
 | `STT_TOKEN`             | (비어 있음)             | 클라이언트: 서버로 전송되는 베어러 토큰            |
 
@@ -126,8 +143,9 @@ speech-to-text/
 │   ├── errors.py        # uniform JSON error responses and Flask error handlers
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
-│   ├── model_pool.py    # pool of pre-loaded Whisper instances
-│   └── stt.py           # Whisper wrapper
+│   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── stt.py           # Whisper wrapper
+│   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build
 ├── docs/                # README translations

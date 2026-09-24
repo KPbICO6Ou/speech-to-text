@@ -3,6 +3,27 @@
 ### [Unreleased]
 
 #### Added
+- **`POST /api/diarize`: who spoke when.** An optional second model,
+  `nvidia/Nemotron-3-Diarization`, returns `{segments, speakers, elapsed}` where each
+  segment is `{speaker, start, end}`. It produces no text; Whisper remains the only
+  source of words. Turns may overlap, because each speaker channel is scored
+  independently, and speaker numbers are arrival-order positions in one recording, not
+  identities. Eight speakers is the ceiling.
+- **Diarization is opt-in twice over.** The backend only enters the image when it is
+  built with `--build-arg DIARIZE=true`, and the endpoint only answers when
+  `DIARIZE_ENABLED` is set; otherwise it returns `503 Diarization disabled`. A
+  deployment that wants none of it is byte-identical to one built before the feature
+  existed. The CPU image leaves it off: the model card names four NVIDIA GPU
+  architectures and never mentions CPU.
+- **A second pool.** `DIARIZER_POOL` sits beside `MODEL_POOL` as its own queue, with
+  `init_diarizer_pool`, `acquire_diarizer` and `release_diarizer`. Both pools fill inside
+  the single `flock` in `post_fork`, because both models download on first run.
+  `GET /api/health` reports the diarization mode and, when it is on, the pool counters.
+- **Build-time assertion on the CUDA wheel.** The GPU image installs `torch==2.10.0+cu130`
+  and then runs further unconstrained dependency resolutions, any of which can replace it;
+  the failure used to surface much later as cuBLAS and cuDNN errors that read like a driver
+  problem. The build now fails instead, and a `DIARIZE=true` build additionally asserts that
+  the installed transformers really carries the model.
 - **The project is an installable package.** `pyproject.toml` gained a `[project]`
   table, entry points `stt-server` and `stt-client`, and a `whisper` extra that
   holds the model backend, so `pip install speech-to-text` no longer drags in
@@ -37,6 +58,9 @@
   mounted dirs and drops privileges via `setpriv` before starting the server.
 
 #### Changed
+- **Pool sizes are read when a pool is initialised**, not bound as default arguments at
+  import time, so changing `MODEL_POOL_SIZE` or `DIARIZE_POOL_SIZE` is actually obeyed.
+- **The upload-to-WAV step is shared** by both endpoints instead of duplicated.
 - **CI mirrors the sibling text-to-speech project.** Actions are pinned by commit
   SHA, dependencies install through `pip install -e ".[dev]"`, and the lint job
   runs `mypy` after `pre-commit`.

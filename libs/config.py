@@ -41,6 +41,17 @@ WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "en").lower()
 WHISPER_DOWNLOAD_ROOT = os.getenv("WHISPER_DOWNLOAD_ROOT", "models")
 COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "auto").lower()
 
+# Speaker diarization. Off by default: the model is an optional extra, it is documented for
+# NVIDIA GPUs only, and a deployment that does not want it should stay byte-identical to one
+# that never heard of it.
+DIARIZE_ENABLED = os.getenv("DIARIZE_ENABLED", "false").lower() in TRUE_VALUES
+DIARIZE_MODEL = os.getenv("DIARIZE_MODEL", "nvidia/Nemotron-3-Diarization")
+DIARIZE_POOL_SIZE = int(os.getenv("DIARIZE_POOL_SIZE", "1"))
+DIARIZE_DOWNLOAD_ROOT = os.getenv("DIARIZE_DOWNLOAD_ROOT", "models")
+# Frames whose activity probability clears this are counted as speech. 0.5 is the default
+# baked into the processor's extract_speaker_dict.
+DIARIZE_THRESHOLD = float(os.getenv("DIARIZE_THRESHOLD", "0.5"))
+
 # CLI client
 STT_URL = os.getenv("STT_URL", "http://localhost:5099")
 STT_TOKEN = os.getenv("STT_TOKEN", "").strip()

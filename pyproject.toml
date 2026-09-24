@@ -50,6 +50,15 @@ whisper = [
     "openai-whisper>=20231117",
     "soundfile>=0.12.1",
 ]
+# Speaker diarization. transformers is pinned to a git commit because the model declares
+# transformers_version 5.18.0.dev0 while the newest PyPI release is 5.17.0, which does not
+# recognise the `nemotron3_diarization` architecture at all. A direct reference like this is
+# fine for `python -m build` and for the GitHub Release, and would be rejected by PyPI - so
+# swap it for a version pin before this package is ever published there.
+diarize = [
+    "transformers @ git+https://github.com/huggingface/transformers@98d39824ed30e684e5122d04a2d9564efffc4965",
+    "soundfile>=0.12.1",
+]
 dev = [
     "black>=26.5.1,<27",
     "ruff>=0.16.7",

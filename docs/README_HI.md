@@ -71,6 +71,18 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+`POST /api/diarize` केवल यह उत्तर देता है कि **कौन कब बोला**, और कुछ नहीं: यह स्पीकर संख्या के साथ समय-अंतराल लौटाता है, कभी टेक्स्ट नहीं। यह तब तक बंद रहता है जब तक `DIARIZE=true` के साथ बनाई गई इमेज पर `DIARIZE_ENABLED` सेट न हो; अन्यथा यह `503` लौटाता है।
+
+```bash
+curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
+```
+
+```json
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+```
+
+इन संख्याओं के बारे में दो बातें। अंतराल एक-दूसरे पर ओवरलैप कर सकते हैं, क्योंकि हर स्पीकर चैनल का मूल्यांकन अलग से होता है, इसलिए एक साथ बोलते दो लोग समान सेकंडों को कवर करने वाले दो अंतराल बनाते हैं। और लेबल केवल इसी एक रिकॉर्डिंग में स्थितियाँ हैं, इस क्रम में कि कौन पहले बोला: वे पहचान नहीं हैं, और अगले अनुरोध में उसी व्यक्ति को अलग संख्या मिलती है। किसी स्पीकर का नाम बताने के लिए एक एनरोलमेंट चरण चाहिए, जो इस सेवा में नहीं है। अधिकतम आठ स्पीकर अलग-अलग पहचाने जाते हैं।
+
 अपलोड `MAX_CONTENT_LENGTH_MB` (डिफ़ॉल्ट रूप से 10 MB) तक सीमित हैं; बड़ा बॉडी `413` लौटाता है।
 
 त्रुटियाँ एकसमान होती हैं: `error` एक सामान्य श्रेणी रखता है और `request_id` प्रतिक्रिया को सर्वर लॉग से सहसंबंधित करता है, जहाँ पूरा अपवाद (exception) दर्ज होता है।
@@ -110,6 +122,11 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `WHISPER_LANGUAGE`      | `en`                    | डिफ़ॉल्ट ट्रांसक्रिप्शन भाषा                          |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | मॉडल कैश डायरेक्टरी (Docker में `/opt/models`)        |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, या `auto`                             |
+| `DIARIZE_ENABLED`       | `false`                 | `POST /api/diarize` सक्षम करें (`DIARIZE=true` इमेज चाहिए) |
+| `DIARIZE_MODEL`         | `nvidia/Nemotron-3-Diarization` | डायराइज़ेशन मॉडल id                                  |
+| `DIARIZE_POOL_SIZE`     | `1`                     | पहले से लोड किए गए डायराइज़र इंस्टेंस                 |
+| `DIARIZE_DOWNLOAD_ROOT` | `models`                | डायराइज़ेशन मॉडल कैश डायरेक्टरी                       |
+| `DIARIZE_THRESHOLD`     | `0.5`                   | स्पीकर सक्रियता संभावना जिसे वाक् माना जाए             |
 | `STT_URL`               | `http://localhost:5099` | क्लाइंट: सर्वर बेस URL                               |
 | `STT_TOKEN`             | (खाली)                  | क्लाइंट: सर्वर को भेजा गया बियरर टोकन                 |
 
@@ -126,8 +143,9 @@ speech-to-text/
 │   ├── errors.py        # uniform JSON error responses and Flask error handlers
 │   ├── auth.py          # optional static-token authentication
 │   ├── audio.py         # upload -> 16 kHz mono WAV conversion
-│   ├── model_pool.py    # pool of pre-loaded Whisper instances
-│   └── stt.py           # Whisper wrapper
+│   ├── model_pool.py    # pools of pre-loaded Whisper and diarizer instances
+│   ├── stt.py           # Whisper wrapper
+│   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
 ├── Dockerfile-cpu       # CPU build
 ├── docs/                # README translations
