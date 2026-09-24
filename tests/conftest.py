@@ -19,7 +19,7 @@ import libs  # noqa: E402  (the real package; only libs.stt below is replaced)
 
 
 def fake_get_model():
-    """Stand in for stt.get_model() — the tests never load real Whisper weights."""
+    """Stand in for stt.get_model() - the tests never load real Whisper weights."""
     return object()
 
 

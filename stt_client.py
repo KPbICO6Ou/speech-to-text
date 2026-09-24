@@ -52,9 +52,7 @@ def transcribe_and_log(filepath: str, position: str) -> None:
         result = transcribe_file(filepath)
     except requests.HTTPError as exc:
         resp = exc.response
-        logger.error(
-            "%s %s: %s %s %s", position, filepath, resp.status_code, resp.reason, resp.text
-        )
+        logger.error("%s %s: %s %s %s", position, filepath, resp.status_code, resp.reason, resp.text)
         return
     except Exception as exc:
         logger.error(

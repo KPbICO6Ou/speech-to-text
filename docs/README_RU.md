@@ -139,7 +139,7 @@ speech-to-text/
 Должны присутствовать системные пакеты `ffmpeg` и `libsndfile1`. Установите рантайм- и dev-зависимости:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 pre-commit install
 ```
 
@@ -152,6 +152,7 @@ make stop           # stop the background server
 make gunicorn       # run via gunicorn
 make test           # pytest
 make lint           # pre-commit (black + ruff)
+make typecheck      # mypy
 ```
 
 Набор тестов подменяет бэкенд Whisper заглушкой, поэтому он покрывает HTTP-слой (request_id, категории ошибок, семантику пула моделей) и выполняется за секунды без скачивания модели и без GPU.

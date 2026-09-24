@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""POST /api/stt — per-request ``language`` option."""
+"""POST /api/stt - per-request ``language`` option."""
 
 import io
 import re

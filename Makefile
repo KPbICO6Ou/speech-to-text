@@ -3,7 +3,7 @@ SHELL := /bin/zsh
 PID_FILE := .stt_server.pid
 LOG_FILE := logs/stt_server.log
 
-.PHONY: run start stop gunicorn test lint
+.PHONY: run start stop gunicorn test lint typecheck
 
 run:
 	python3 stt_server.py
@@ -26,6 +26,9 @@ test:
 
 lint:
 	pre-commit run --all-files
+
+typecheck:
+	mypy
 
 stop:
 	@if [ ! -f "$(PID_FILE)" ]; then \

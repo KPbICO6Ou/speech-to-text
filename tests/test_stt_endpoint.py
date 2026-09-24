@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""POST /api/stt — error paths, success path, leak regression."""
+"""POST /api/stt - error paths, success path, leak regression."""
 
 import io
 import queue

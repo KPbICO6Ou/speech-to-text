@@ -22,7 +22,7 @@ def get_request_id() -> str:
 def build_error_response(error: str, status: int, **extra):
     """Build the project-wide error body: the error category, the request id and nothing else.
 
-    Details never reach the client — the full exception goes to the log under the
+    Details never reach the client - the full exception goes to the log under the
     same request id, so a report can be correlated without leaking internals.
     """
     body = {"error": error, "request_id": get_request_id()}
@@ -52,9 +52,7 @@ def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(413)
     def payload_too_large(error):
         """Return the generic body plus the configured upload limit."""
-        logger.warning(
-            "[%s] Payload too large (limit=%dMB)", get_request_id(), config.MAX_CONTENT_LENGTH_MB
-        )
+        logger.warning("[%s] Payload too large (limit=%dMB)", get_request_id(), config.MAX_CONTENT_LENGTH_MB)
         return build_error_response("Payload Too Large", 413, limit_mb=config.MAX_CONTENT_LENGTH_MB)
 
     @app.errorhandler(500)

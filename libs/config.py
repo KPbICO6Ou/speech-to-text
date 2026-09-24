@@ -22,10 +22,10 @@ STT_DEBUG = os.getenv("STT_DEBUG", "false").lower() in TRUE_VALUES
 # Number of Whisper instances pre-loaded into the pool at startup.
 MODEL_POOL_SIZE = int(os.getenv("STT_POOL_SIZE", "8"))
 
-# Static-token auth — an empty set means "auth disabled, allow all" (trusted deployment).
+# Static-token auth - an empty set means "auth disabled, allow all" (trusted deployment).
 STT_TOKENS: set[str] = {t.strip() for t in os.getenv("STT_TOKENS", "").split(",") if t.strip()}
 
-# Max request body size — caps memory usage per request to mitigate OOM/DoS.
+# Max request body size - caps memory usage per request to mitigate OOM/DoS.
 # Flask returns 413 automatically when exceeded.
 MAX_CONTENT_LENGTH_MB = int(os.getenv("MAX_CONTENT_LENGTH_MB", "10"))
 

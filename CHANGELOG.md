@@ -3,6 +3,19 @@
 ### [Unreleased]
 
 #### Added
+- **The project is an installable package.** `pyproject.toml` gained a `[project]`
+  table, entry points `stt-server` and `stt-client`, and a `whisper` extra that
+  holds the model backend, so `pip install speech-to-text` no longer drags in
+  torch for someone who only wants the client.
+- **Release workflow.** Pushing a `1.2.3` tag builds the wheel and sdist and cuts
+  a GitHub Release whose notes come from the matching `### [1.2.3]` section of
+  this file.
+- **Type checking.** `mypy` runs over `libs/`, `stt_server.py`, `stt_client.py`
+  and `gu.py`, in CI and behind `make typecheck`.
+- **Repository furniture.** Issue forms for bugs and feature requests, a pull
+  request template with the project checklist, and a Dependabot configuration
+  for pip and GitHub Actions. `torch` and `torchaudio` are excluded from it
+  because their CUDA build is pinned per Docker image.
 - **Per-request language for `/api/stt`.** An optional `language` (query string
   `?language=ru` or a multipart form field) overrides the server
   `WHISPER_LANGUAGE` default for a single request; `auto` autodetects. Invalid
@@ -24,6 +37,12 @@
   mounted dirs and drops privileges via `setpriv` before starting the server.
 
 #### Changed
+- **CI mirrors the sibling text-to-speech project.** Actions are pinned by commit
+  SHA, dependencies install through `pip install -e ".[dev]"`, and the lint job
+  runs `mypy` after `pre-commit`.
+- **Formatting widened to 128 columns**, and black and ruff moved to current
+  releases. Throwaway names use an `unused_` prefix, which ruff is configured to
+  accept, because the project style forbids a leading underscore.
 - **`stt_server.py` split into focused modules.** The entry point now holds only
   the app wiring, the two routes and `main()`. Configuration, logging setup,
   error handling, auth, audio conversion and the model pool moved to

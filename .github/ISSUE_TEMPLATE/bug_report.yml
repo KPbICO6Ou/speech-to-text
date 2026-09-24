@@ -1,0 +1,83 @@
+name: Bug report
+description: Something does not work the way the docs say it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The exact behaviour you saw, including the full error message and the request_id from the response body if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The request that triggers it, with the file format and any options. Remove tokens before pasting.
+      placeholder: |
+        curl -F file=@sample.wav 'http://localhost:5099/api/stt?language=en'
+    validations:
+      required: true
+  - type: textarea
+    id: health-output
+    attributes:
+      label: Output of `GET /api/health`
+      description: Shows the pool size and how many models were free when it failed.
+      render: text
+  - type: dropdown
+    id: compute
+    attributes:
+      label: Compute backend
+      options:
+        - cpu
+        - cuda
+        - auto
+    validations:
+      required: true
+  - type: input
+    id: whisper-model
+    attributes:
+      label: Whisper model
+      description: The value of WHISPER_MODEL.
+      placeholder: "turbo"
+    validations:
+      required: true
+  - type: dropdown
+    id: runs-as
+    attributes:
+      label: How it runs
+      options:
+        - python3 stt_server.py
+        - gunicorn --config gu.py
+        - Docker (CPU)
+        - Docker (GPU)
+        - stt_client.py
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release tag or the commit you are running.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: os-python
+    attributes:
+      label: OS and Python version
+      placeholder: "Ubuntu 24.04, Python 3.12.3"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant server output or `docker compose logs stt_server`. The request_id ties a response to its log line. Remove tokens before pasting.
+      render: text

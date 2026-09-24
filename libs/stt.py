@@ -74,9 +74,7 @@ def read_waveform(bio: io.BytesIO) -> np.ndarray:
         waveform = torch.from_numpy(data).float()
         if waveform.ndim == 2:
             waveform = waveform.mean(dim=1)
-        resampler = torchaudio.transforms.Resample(
-            orig_freq=sample_rate, new_freq=TARGET_SAMPLE_RATE
-        )
+        resampler = torchaudio.transforms.Resample(orig_freq=sample_rate, new_freq=TARGET_SAMPLE_RATE)
         data = resampler(waveform).numpy()
     else:
         if data.ndim == 2:
@@ -97,7 +95,7 @@ def get_stt_bio(
     """Transcribe a WAV buffer and return the text.
 
     A 16 kHz mono buffer (what the server always sends) skips the resampling
-    step. Without an explicit `model` one is loaded on the spot, which is slow —
+    step. Without an explicit `model` one is loaded on the spot, which is slow -
     the server passes an instance borrowed from the pool. Decoding is seeded and
     greedy so the same audio always produces the same text.
     """

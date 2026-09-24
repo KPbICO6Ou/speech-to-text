@@ -28,8 +28,9 @@ make start         # background via nohup; PID -> .stt_server.pid, logs -> logs/
 make stop          # kills the PID from .stt_server.pid (SIGTERM, then SIGKILL after 1s)
 make gunicorn      # gunicorn --config gu.py stt_server:app
 
-make test          # pytest (stubs Whisper; no model download, no GPU)
+make test          # pytest with coverage (stubs Whisper; no model download, no GPU)
 make lint          # pre-commit: black + ruff over the whole repo
+make typecheck     # mypy
 
 docker compose up --build                            # GPU build (default)
 docker compose -f docker-compose-cpu.yml up --build   # CPU build
@@ -38,7 +39,9 @@ python3 stt_client.py file.mp3 [file2 ...]   # respects STT_URL (default http://
 python3 -m libs.stt file.wav                 # transcribe one file without the server
 ```
 
-CI runs exactly two jobs: `pre-commit run --all-files` and `pytest`. Both must pass before a PR is mergeable. Docker images are **not** built in CI - changing a `COPY` line or `entrypoint.sh` needs a local `docker compose ... up --build`.
+Dev install is `pip install -e ".[dev]"`, which is also what CI runs. CI has two jobs: **lint** (`pre-commit run --all-files` plus `mypy`) and **test** (`pytest`). Both must pass before a PR is mergeable. A tag of the form `1.2.3` triggers **release**, which builds the wheel and sdist and cuts a GitHub Release from the matching `### [1.2.3]` section of `CHANGELOG.md` - so that section must exist before the tag is pushed. Docker images are **not** built in CI - changing a `COPY` line or `entrypoint.sh` needs a local `docker compose ... up --build`.
+
+The project is an installable package. `pip install speech-to-text` gives the HTTP layer, the error handling and the CLI client; the transcription backend is the `whisper` extra, because `openai-whisper` pulls torch and that is the wrong default for someone who only wants to talk to a server. `requirements.txt` is the server's install, which does include the backend, and is what the Docker images use. Entry points: `stt-server` and `stt-client`.
 
 ## Environment
 
@@ -73,7 +76,9 @@ Beyond PEP 8 and Python 3.12 defaults:
 - **No decorative comment banners** (`# ----`, `# ====`).
 - **Functional style over classes.** Classes only for ORM models and framework subclasses; there are none here.
 - **Do not add tests unless asked.** When behaviour changes, update the existing suite so it keeps passing.
-- `black` and `ruff` cover the whole repo (line length 100, target py312, rules `E,F,I,UP,B`, ignoring `E501,UP009`). Nothing is excluded except `models/`.
+- **A deliberately unused name is spelled `unused_something`**, never `_something`; ruff's `dummy-variable-rgx` is configured to accept exactly that prefix.
+- `black` and `ruff` cover the whole repo (line length 128, target py312, rules `E,F,I,UP,B`, ignoring `E501,UP009`). Nothing is excluded except `models/`.
+- **`mypy` must pass.** It runs over `libs/`, `stt_server.py`, `stt_client.py` and `gu.py` with `ignore_missing_imports`, so untyped third-party packages are fine; a real type error is not.
 
 ## Repo etiquette
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Pool of pre-loaded Whisper instances — Whisper is not thread-safe, so requests borrow one."""
+"""Pool of pre-loaded Whisper instances - Whisper is not thread-safe, so requests borrow one."""
 
 import logging
 import queue

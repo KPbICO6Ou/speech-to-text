@@ -23,11 +23,7 @@ def convert_to_wav(bio: io.BytesIO) -> io.BytesIO:
     caller turns that into a 400.
     """
     audio = AudioSegment.from_file(bio)
-    audio = (
-        audio.set_channels(TARGET_CHANNELS)
-        .set_frame_rate(TARGET_SAMPLE_RATE)
-        .set_sample_width(TARGET_SAMPLE_WIDTH)
-    )
+    audio = audio.set_channels(TARGET_CHANNELS).set_frame_rate(TARGET_SAMPLE_RATE).set_sample_width(TARGET_SAMPLE_WIDTH)
     wav_bio = io.BytesIO()
     audio.export(wav_bio, format="wav")
     wav_bio.seek(0)

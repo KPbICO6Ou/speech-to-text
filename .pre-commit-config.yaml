@@ -1,12 +1,12 @@
+exclude: ^models/
 repos:
   - repo: https://github.com/psf/black
-    rev: 24.10.0
+    rev: 26.5.1
     hooks:
       - id: black
-        exclude: ^models/
+        args: ["--line-length=128"]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.7.4
+    rev: v0.16.7
     hooks:
-      - id: ruff
-        args: [--fix]
-        exclude: ^models/
+      - id: ruff-check
+        args: ["--fix"]

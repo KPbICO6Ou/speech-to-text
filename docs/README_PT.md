@@ -139,7 +139,7 @@ speech-to-text/
 Os pacotes de sistema `ffmpeg` e `libsndfile1` precisam estar presentes. Instale as dependências de runtime e de desenvolvimento:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 pre-commit install
 ```
 
@@ -152,6 +152,7 @@ make stop           # stop the background server
 make gunicorn       # run via gunicorn
 make test           # pytest
 make lint           # pre-commit (black + ruff)
+make typecheck      # mypy
 ```
 
 A suíte de testes substitui o backend do Whisper por um stub, de modo que cobre a camada HTTP (request_id, categorias de erro, semântica do pool de modelos) e roda em segundos sem baixar um modelo nem precisar de uma GPU.

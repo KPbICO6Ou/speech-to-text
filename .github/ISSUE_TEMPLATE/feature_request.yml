@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a change or an addition.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What you would like to happen. A sketch of the request, the response body or the screen is enough.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways to get the same result, and why they do not fit.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      multiple: true
+      options:
+        - HTTP API (stt_server)
+        - Python API (libs)
+        - CLI client (stt_client)
+        - Model backend (Whisper, diarization)
+        - Docker or deployment
+        - Web UI
+        - Docs
+    validations:
+      required: true

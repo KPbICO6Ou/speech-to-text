@@ -139,7 +139,7 @@ speech-to-text/
 시스템 패키지 `ffmpeg`와 `libsndfile1`이 설치되어 있어야 합니다. 런타임 및 개발 의존성을 설치하세요.
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 pre-commit install
 ```
 
@@ -152,6 +152,7 @@ make stop           # stop the background server
 make gunicorn       # run via gunicorn
 make test           # pytest
 make lint           # pre-commit (black + ruff)
+make typecheck      # mypy
 ```
 
 테스트 스위트는 Whisper 백엔드를 스텁으로 대체하므로 HTTP 계층(request_id, 오류 범주, 모델 풀 동작)을 다루며, 모델을 내려받거나 GPU가 필요하지 않고 몇 초 만에 실행됩니다.

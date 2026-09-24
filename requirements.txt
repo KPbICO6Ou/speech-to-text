@@ -1,3 +1,13 @@
+# Runtime dependencies for the server, as the Docker images install them.
+# Mirrors `[project].dependencies` plus the `whisper` extra in pyproject.toml -
+# keep in sync. The extra exists so that `pip install speech-to-text` gives the
+# HTTP layer and the CLI client without dragging in torch; this file is the
+# server's install, which needs the model backend.
+#
+# torch and torchaudio are NOT here: the CUDA build differs per image and is
+# pinned in Dockerfile / Dockerfile-cpu and in requirements-gpu.txt /
+# requirements-cpu.txt.
+
 # Web framework
 flask>=3.0.0
 flask-cors>=4.0.0

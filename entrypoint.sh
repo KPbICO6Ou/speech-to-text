@@ -1,6 +1,6 @@
 #!/bin/sh
 # Started as root: the bind-mounted dirs (models/logs/recs) arrive owned by
-# the host user, which the unprivileged stt user cannot write — the chown
+# the host user, which the unprivileged stt user cannot write - the chown
 # baked into the image cannot reach them. Fix ownership here, then drop
 # privileges and run the command.
 set -eu

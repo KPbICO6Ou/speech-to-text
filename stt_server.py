@@ -143,9 +143,7 @@ def transcribe():
     try:
         model = model_pool.acquire_model()
     except queue.Empty:
-        logger.warning(
-            "[%s] Model pool exhausted: %s", get_request_id(), model_pool.get_pool_status()
-        )
+        logger.warning("[%s] Model pool exhausted: %s", get_request_id(), model_pool.get_pool_status())
         return build_error_response("Service Unavailable", 503)
 
     try:
