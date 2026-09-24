@@ -34,3 +34,7 @@ notes/
 !README.md
 !CHANGELOG.md
 !docs/*.md
+# Shared agent instructions are tracked; the local overlay it imports is not.
+!AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
