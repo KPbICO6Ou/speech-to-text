@@ -173,7 +173,7 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `GUNICORN_WORKERS`      | `4`                     | वर्कर प्रक्रियाएँ (केवल gunicorn)                     |
 | `LOG_LEVEL`             | `INFO`                  | लॉगिंग स्तर                                          |
 | `LOG_ACCESS`            | `false`                 | uvicorn एक्सेस लाइनें लॉग करें                       |
-| `WHISPER_MODEL`         | `turbo`                 | Whisper मॉडल नाम (जैसे `small.en`, `turbo`)          |
+| `WHISPER_MODEL`         | `small.en`              | Whisper मॉडल नाम (जैसे `small.en`, `turbo`)          |
 | `WHISPER_LANGUAGE`      | `en`                    | डिफ़ॉल्ट ट्रांसक्रिप्शन भाषा                          |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | मॉडल कैश डायरेक्टरी (Docker में `/opt/models`)        |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, या `auto`                             |

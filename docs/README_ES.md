@@ -173,7 +173,7 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `GUNICORN_WORKERS`      | `4`                     | procesos de trabajo (solo gunicorn)                |
 | `LOG_LEVEL`             | `INFO`                  | nivel de registro                                  |
 | `LOG_ACCESS`            | `false`                 | registrar las líneas de acceso de uvicorn          |
-| `WHISPER_MODEL`         | `turbo`                 | nombre del modelo Whisper (p. ej. `small.en`, `turbo`) |
+| `WHISPER_MODEL`         | `small.en`              | nombre del modelo Whisper (p. ej. `small.en`, `turbo`) |
 | `WHISPER_LANGUAGE`      | `en`                    | idioma de transcripción por defecto                |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | directorio de caché del modelo (`/opt/models` en Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` o `auto`                             |

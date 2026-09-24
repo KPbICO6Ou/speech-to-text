@@ -173,7 +173,7 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `GUNICORN_WORKERS`      | `4`                     | 工作进程数量（仅 gunicorn）                        |
 | `LOG_LEVEL`             | `INFO`                  | 日志级别                                           |
 | `LOG_ACCESS`            | `false`                 | 记录 uvicorn 访问日志行                            |
-| `WHISPER_MODEL`         | `turbo`                 | Whisper 模型名称（例如 `small.en`、`turbo`）       |
+| `WHISPER_MODEL`         | `small.en`              | Whisper 模型名称（例如 `small.en`、`turbo`）       |
 | `WHISPER_LANGUAGE`      | `en`                    | 默认转录语言                                       |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 模型缓存目录（Docker 中为 `/opt/models`）          |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda` 或 `auto`                            |

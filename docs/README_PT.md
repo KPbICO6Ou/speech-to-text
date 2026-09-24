@@ -173,7 +173,7 @@ O `.env` é carregado tanto pelo servidor quanto pelo cliente através do `pytho
 | `GUNICORN_WORKERS`      | `4`                     | processos worker (apenas gunicorn)                  |
 | `LOG_LEVEL`             | `INFO`                  | nível de log                                        |
 | `LOG_ACCESS`            | `false`                 | registrar as linhas de acesso do uvicorn           |
-| `WHISPER_MODEL`         | `turbo`                 | nome do modelo Whisper (ex.: `small.en`, `turbo`)   |
+| `WHISPER_MODEL`         | `small.en`              | nome do modelo Whisper (ex.: `small.en`, `turbo`)   |
 | `WHISPER_LANGUAGE`      | `en`                    | idioma de transcrição padrão                        |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | diretório de cache de modelos (`/opt/models` no Docker) |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda` ou `auto`                             |

@@ -17,18 +17,28 @@ The project fits local use, batch transcription, and running your own STT server
 
 ### Models
 
-Whisper ships several model sizes. Bigger models are more accurate and slower; smaller ones are fast and light.
+The server carries three kinds of model. Which ones a running instance actually has, with their exact language lists, is answered by `GET /api/models` (or `python3 stt_client.py --list`); this section is the overview.
 
-| Model      | Parameters | VRAM    | Languages       | Good for                                      |
-| ---------- | ---------- | ------- | --------------- | --------------------------------------------- |
-| `tiny`     | 39M        | ~1 GB   | multilingual    | quick drafts on weak hardware                 |
-| `base`     | 74M        | ~1 GB   | multilingual    | a light general-purpose default               |
-| `small`    | 244M       | ~2 GB   | multilingual    | a good accuracy / speed balance               |
-| `medium`   | 769M       | ~5 GB   | multilingual    | higher accuracy when you can spare the memory |
-| `turbo`    | 809M       | ~6 GB   | multilingual    | near-`large` accuracy, much faster            |
-| `large`    | 1550M      | ~10 GB  | multilingual    | best quality, needs a GPU                     |
+**Transcription** - one backend at a time, chosen with `STT_BACKEND`.
 
-English-only variants (`tiny.en`, `base.en`, `small.en`, `medium.en`) are a bit more accurate on English audio. The default is `turbo`, which is the best all-round pick for English on a GPU.
+Whisper (`STT_BACKEND=whisper`, the default) ships several sizes. Bigger models are more accurate and slower; smaller ones are fast and light.
+
+| Model      | Parameters | VRAM    | Languages          | Good for                                      |
+| ---------- | ---------- | ------- | ------------------ | --------------------------------------------- |
+| `tiny`     | 39M        | ~1 GB   | 99                 | quick drafts on weak hardware                 |
+| `base`     | 74M        | ~1 GB   | 99                 | a light general-purpose default               |
+| `small`    | 244M       | ~2 GB   | 99                 | a good accuracy / speed balance               |
+| `medium`   | 769M       | ~5 GB   | 99                 | higher accuracy when you can spare the memory |
+| `turbo`    | 809M       | ~6 GB   | 100                | near-`large` accuracy, much faster            |
+| `large`    | 1550M      | ~10 GB  | 100                | best quality, needs a GPU                     |
+
+The large-v3 lineage (`large`, `turbo`) knows 100 languages, the others 99; the English-only variants (`tiny.en`, `base.en`, `small.en`, `medium.en`) know one and are a bit more accurate on English audio. `turbo` is stored on disk as `large-v3-turbo.pt`. Without `WHISPER_MODEL` set, the server loads `small.en`; `.env.example` sets `turbo`, the best all-round pick on a GPU.
+
+Parakeet (`STT_BACKEND=parakeet`) is `nvidia/parakeet-tdt-0.6b-v3`: 600M parameters, about 2.4 GB of weights, 25 European languages. It detects the language itself and takes no `language` argument, which `GET /api/models` reports as `accepts_language: false`. It needs an image built with `PARAKEET=true`.
+
+**Diarization** - `nvidia/Nemotron-3-Diarization`, 100M parameters, about 400 MB of weights. It answers who spoke when for up to eight speakers and produces no text in any language. It needs an image built with `DIARIZE=true` and `DIARIZE_ENABLED=true` at run time, and is documented for NVIDIA GPUs only.
+
+None of these is overlap-aware: where two people talk at once, the transcript marks the span rather than separating the voices. NVIDIA's model for that ships only as a NeMo checkpoint, which is not installable against this project's CUDA build of PyTorch.
 
 ### Quick start (Docker)
 
@@ -42,7 +52,24 @@ docker compose up --build                              # GPU (CUDA 13.0)
 docker compose -f docker-compose-cpu.yml up --build    # CPU only
 ```
 
-The GPU build needs `nvidia-container-toolkit` on the host. The first run downloads the Whisper model into `./models`.
+The GPU build needs `nvidia-container-toolkit` on the host, and the compose file requests the GPU through CDI, so the host also needs a CDI spec. Generate it once, and again after every driver update:
+
+```bash
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+```
+
+The GPU image is built on the multi-architecture CUDA base and runs on x86_64 and on aarch64, including NVIDIA GB10 (DGX Spark).
+
+Diarization and Parakeet are optional and are built into the image only when asked for. Set the build switches and the run-time switches in `.env`:
+
+```bash
+DIARIZE=true            # build: install the diarization backend
+DIARIZE_ENABLED=true    # run: serve /api/diarize and /api/transcript
+PARAKEET=true           # build: install the Parakeet backend
+STT_BACKEND=parakeet    # run: transcribe with Parakeet instead of Whisper
+```
+
+then rebuild with `docker compose up -d --build`. The two failures differ on purpose. Enabling diarization on an image built without it answers `503` for the diarization routes and keeps transcribing. Selecting `STT_BACKEND=parakeet` on an image built without it stops the server at startup with the missing dependency in the log: a transcription service that cannot transcribe should not report itself healthy, and quietly falling back to Whisper would serve a different model than the one configured. The first run downloads each model into `./models`: Whisper, and when enabled about 2.4 GB for Parakeet and 400 MB for the diarizer.
 
 ### HTTP API
 
@@ -173,7 +200,7 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `GUNICORN_WORKERS`      | `4`                     | worker processes (gunicorn only)                    |
 | `LOG_LEVEL`             | `INFO`                  | logging level                                       |
 | `LOG_ACCESS`            | `false`                 | log uvicorn access lines                            |
-| `WHISPER_MODEL`         | `turbo`                 | Whisper model name (e.g. `small.en`, `turbo`)       |
+| `WHISPER_MODEL`         | `small.en`              | Whisper model name (e.g. `small.en`, `turbo`)       |
 | `WHISPER_LANGUAGE`      | `en`                    | default transcription language                      |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | model cache directory (`/opt/models` in Docker)     |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, or `auto`                             |

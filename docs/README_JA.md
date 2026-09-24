@@ -173,7 +173,7 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `GUNICORN_WORKERS`      | `4`                     | ワーカープロセスの数（gunicorn のみ）                 |
 | `LOG_LEVEL`             | `INFO`                  | ログレベル                                          |
 | `LOG_ACCESS`            | `false`                 | uvicorn のアクセスログを記録する                      |
-| `WHISPER_MODEL`         | `turbo`                 | Whisper モデル名（例: `small.en`、`turbo`）          |
+| `WHISPER_MODEL`         | `small.en`              | Whisper モデル名（例: `small.en`、`turbo`）          |
 | `WHISPER_LANGUAGE`      | `en`                    | デフォルトの文字起こし言語                            |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | モデルキャッシュのディレクトリ（Docker では `/opt/models`） |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`、`cuda`、または `auto`                         |

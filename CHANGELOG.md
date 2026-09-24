@@ -74,6 +74,10 @@
   linked from the language switcher at the top of each README.
 
 #### Fixed
+- **The README named the wrong default model.** It said `turbo`; without `WHISPER_MODEL`
+  set, the server loads `small.en`, and only `.env.example` selects `turbo`. The README and
+  its translations now say so, and the Models section lists the real language counts
+  (99, or 100 for the large-v3 lineage) instead of "multilingual".
 - **`language` is checked against what the model knows, not against a regex.** The old
   shape check was wrong in both directions: `?language=zz` has the shape of a code, so it
   passed, reached Whisper, raised there and surfaced as a `500`; `?language=russian` was

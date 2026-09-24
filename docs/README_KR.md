@@ -173,7 +173,7 @@ python3 stt_client.py file1.wav file2.mp3 file3.ogg
 | `GUNICORN_WORKERS`      | `4`                     | 워커 프로세스 수(gunicorn 전용)                    |
 | `LOG_LEVEL`             | `INFO`                  | 로깅 레벨                                          |
 | `LOG_ACCESS`            | `false`                 | uvicorn 액세스 로그 기록                           |
-| `WHISPER_MODEL`         | `turbo`                 | Whisper 모델 이름(예: `small.en`, `turbo`)         |
+| `WHISPER_MODEL`         | `small.en`              | Whisper 모델 이름(예: `small.en`, `turbo`)         |
 | `WHISPER_LANGUAGE`      | `en`                    | 기본 전사 언어                                     |
 | `WHISPER_DOWNLOAD_ROOT` | `models`                | 모델 캐시 디렉터리(Docker에서는 `/opt/models`)     |
 | `COMPUTE_TYPE`          | `auto`                  | `cpu`, `cuda`, 또는 `auto`                         |

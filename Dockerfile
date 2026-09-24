@@ -32,6 +32,15 @@ RUN uv pip install --no-cache \
         torch==2.10.0+cu130 torchaudio==2.10.0+cu130 \
  && uv pip install --no-cache -r requirements.txt
 
+# Parakeet is opt-in at build time too, and needs no git: it ships in released transformers.
+# It is installed BEFORE the diarizer on purpose. Parakeet asks for transformers>=5.17.0 and the
+# diarizer pins a 5.18.0.dev0 commit; whether a resolver keeps an installed pre-release against
+# a plain `>=` is its own business, so the git pin simply goes last and always wins. That
+# commit carries both architectures, and the assertions below check it.
+ARG PARAKEET=false
+COPY requirements-parakeet.txt /opt/requirements-parakeet.txt
+RUN if [ "$PARAKEET" = "true" ]; then uv pip install --no-cache -r requirements-parakeet.txt; fi
+
 # Speaker diarization is opt-in at build time: `--build-arg DIARIZE=true`. Off, the image is
 # what it was before diarization existed.
 ARG DIARIZE=false
@@ -46,11 +55,6 @@ RUN if [ "$DIARIZE" = "true" ]; then \
      && apt-get purge -y git && apt-get autoremove -y \
      && rm -rf /var/lib/apt/lists/*; \
     fi
-
-# Parakeet is opt-in at build time too, and needs no git: it ships in released transformers.
-ARG PARAKEET=false
-COPY requirements-parakeet.txt /opt/requirements-parakeet.txt
-RUN if [ "$PARAKEET" = "true" ]; then uv pip install --no-cache -r requirements-parakeet.txt; fi
 
 # The torch wheel above is a CUDA build chosen on purpose, and the resolutions that follow it
 # are unconstrained: anything depending on torch can replace it, and the failure surfaces much
