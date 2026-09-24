@@ -62,7 +62,7 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 `GET /api/health` 返回池状态。`available` 降为 0 意味着每个模型当前都在使用中：
 
 ```json
-{ "status": "ok", "pool_size": 4, "available": 3 }
+{ "status": "ok", "pool_size": 4, "available": 3, "diarize": false }
 ```
 
 `POST /api/stt` 接受名为 `file` 的 `multipart/form-data` 字段，或一个原始的 `audio/*` 请求体。可选的 `language`（查询字符串或表单字段）会针对该请求覆盖服务器默认值；`auto` 表示自动检测。成功时返回文本和耗费的秒数：
@@ -78,7 +78,8 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 ```
 
 ```json
-{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 },
+                { "speaker": 1, "start": 12.20, "end": 19.04 } ], "speakers": 2, "elapsed": 1.23 }
 ```
 
 关于这些数字有两点说明。时间区间可能重叠，因为每个说话人通道都是单独评分的，所以两个人同时说话会产生覆盖相同秒数的两个区间。而这些编号只是这一次录音中的位置，按谁先开口排序：它们不是身份标识，同一个人在下一次请求中会得到不同的编号。要给说话人命名，需要一个本服务所不具备的声纹注册步骤。最多可区分八个说话人。

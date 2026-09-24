@@ -57,7 +57,7 @@ The project is an installable package. `pip install speech-to-text` gives the HT
 - Server: `STT_HOST`, `STT_PORT`, `STT_POOL_SIZE`, `STT_DEBUG`, `LOG_LEVEL`, `LOG_ACCESS`
 - Auth / limits / CORS: `STT_TOKENS` (comma-separated; empty disables auth), `MAX_CONTENT_LENGTH_MB`, `CORS_ORIGINS`
 - Whisper: `WHISPER_MODEL`, `WHISPER_LANGUAGE`, `WHISPER_DOWNLOAD_ROOT` (host `models`, container `/opt/models`), `COMPUTE_TYPE`
-- Diarization: `DIARIZE_ENABLED`, `DIARIZE_MODEL`, `DIARIZE_POOL_SIZE`, `DIARIZE_DOWNLOAD_ROOT`, `DIARIZE_THRESHOLD`. The backend only exists in an image built with `--build-arg DIARIZE=true`.
+- Diarization: `DIARIZE_ENABLED`, `DIARIZE_MODEL`, `DIARIZE_POOL_SIZE`, `DIARIZE_DOWNLOAD_ROOT`, `DIARIZE_THRESHOLD`. Two knobs, deliberately separate: `DIARIZE` is a compose **build** arg deciding whether the backend is installed at all, `DIARIZE_ENABLED` is the **runtime** switch. Never pin `DIARIZE_ENABLED` in a compose `environment:` block, which overrides `env_file:` and would silently ignore `.env`.
 - Gunicorn: `GUNICORN_WORKERS`
 - Client: `STT_URL`, `STT_TOKEN`
 
@@ -65,7 +65,7 @@ Model `.pt` files live in `./models/` and are mounted at `/opt/models`, so the c
 
 ## Endpoints
 
-- `GET /api/health` - `{status, pool_size, available}`; `available` at 0 means every model is in flight. Open, no token required, so healthchecks keep working.
+- `GET /api/health` - `{status, pool_size, available, diarize}`, plus `diarize_pool_size` and `diarize_available` when diarization is on. `available` at 0 means every model is in flight. Open, no token required, so healthchecks keep working.
 - `POST /api/stt` - multipart field `file` or a raw `audio/*` body, optional `language` (ISO code or `auto`). Returns `{text, elapsed}`. 400 on missing/bad audio or bad language, 401 without a valid token when `STT_TOKENS` is set, 413 over the size limit, 503 when the pool stays exhausted for 120s, 500 on Whisper errors.
 - `POST /api/diarize` - same body shapes, returns `{segments, speakers, elapsed}` where each segment is `{speaker, start, end}`. 503 with `Diarization disabled` when `DIARIZE_ENABLED` is false, which is the default and the only thing a CPU build ever answers.
 - Every error body is exactly `{"error": <category>, "request_id": <12 hex>}` (413 adds `limit_mb`). Details never reach the client - the full exception goes to the log under the same `request_id`. Build them with `libs/errors.py::build_error_response`, never by hand.

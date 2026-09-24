@@ -55,9 +55,13 @@ whisper = [
 # recognise the `nemotron3_diarization` architecture at all. A direct reference like this is
 # fine for `python -m build` and for the GitHub Release, and would be rejected by PyPI - so
 # swap it for a version pin before this package is ever published there.
+# It is an add-on to `whisper`, not a standalone install: torch comes with that one.
+#   pip install "speech-to-text[whisper,diarize]"
 diarize = [
     "transformers @ git+https://github.com/huggingface/transformers@98d39824ed30e684e5122d04a2d9564efffc4965",
     "soundfile>=0.12.1",
+    # The checkpoint's feature extractor requires it; transformers does not install it.
+    "librosa>=0.10.1",
 ]
 dev = [
     "black>=26.5.1,<27",
@@ -67,6 +71,9 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1",
     "types-requests>=2.33.0",
+    # Not a dev tool: it lets tests/test_diarize_module.py import the REAL libs/diarize.py, which
+    # every other test replaces with a stub, so a broken module-level import fails in CI.
+    "soundfile>=0.12.1",
 ]
 
 [project.urls]

@@ -62,7 +62,7 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 `GET /api/health` restituisce lo stato del pool. `available` che scende a 0 significa che tutti i modelli sono attualmente in uso:
 
 ```json
-{ "status": "ok", "pool_size": 4, "available": 3 }
+{ "status": "ok", "pool_size": 4, "available": 3, "diarize": false }
 ```
 
 `POST /api/stt` accetta un campo `multipart/form-data` chiamato `file`, oppure un corpo grezzo `audio/*`. Un parametro opzionale `language` (query string o campo del form) sovrascrive il valore predefinito del server per quella richiesta; `auto` esegue il riconoscimento automatico. In caso di successo restituisce il testo e i secondi trascorsi:
@@ -78,7 +78,8 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 ```
 
 ```json
-{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 },
+                { "speaker": 1, "start": 12.20, "end": 19.04 } ], "speakers": 2, "elapsed": 1.23 }
 ```
 
 Due precisazioni su questi numeri. I turni possono sovrapporsi, perché ogni canale di parlante viene valutato in modo indipendente, quindi due persone che parlano contemporaneamente producono due turni che coprono gli stessi secondi. E le etichette sono posizioni all'interno di questa singola registrazione, ordinate in base a chi ha parlato per primo: non sono identità, e la stessa persona riceve un numero diverso nella richiesta successiva. Dare un nome a un parlante richiede una fase di registrazione vocale che questo servizio non prevede. Vengono distinti al massimo otto parlanti.

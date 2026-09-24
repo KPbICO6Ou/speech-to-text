@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Gunicorn configuration and hooks: one Whisper pool per worker, loaded after fork."""
+"""Gunicorn configuration and hooks: the model pools are filled per worker, after fork."""
 
 import fcntl
 import logging
@@ -41,7 +41,7 @@ def on_starting(server):
 
 
 def post_fork(server, worker):
-    """Initialize the Whisper model pool in each worker after fork.
+    """Initialize the model pools in each worker after fork.
 
     A file lock serializes workers so only one downloads the model at a time;
     the rest load from the cached .pt file on disk.

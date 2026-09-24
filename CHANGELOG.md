@@ -9,12 +9,14 @@
   source of words. Turns may overlap, because each speaker channel is scored
   independently, and speaker numbers are arrival-order positions in one recording, not
   identities. Eight speakers is the ceiling.
-- **Diarization is opt-in twice over.** The backend only enters the image when it is
-  built with `--build-arg DIARIZE=true`, and the endpoint only answers when
-  `DIARIZE_ENABLED` is set; otherwise it returns `503 Diarization disabled`. A
-  deployment that wants none of it is byte-identical to one built before the feature
-  existed. The CPU image leaves it off: the model card names four NVIDIA GPU
-  architectures and never mentions CPU.
+- **Diarization is opt-in twice over.** `DIARIZE` is a compose build arg deciding
+  whether the backend is installed into the image at all; `DIARIZE_ENABLED` is the
+  runtime switch. Turning the second on without the first returns
+  `503 Diarization unavailable` and logs why, rather than failing to start. With both
+  off, no model is loaded and no diarization dependency is installed; the image itself
+  differs only by an `HF_HOME` setting and the torch assertion below. The CPU image
+  leaves it off: the model card names four NVIDIA GPU architectures and never mentions
+  CPU.
 - **A second pool.** `DIARIZER_POOL` sits beside `MODEL_POOL` as its own queue, with
   `init_diarizer_pool`, `acquire_diarizer` and `release_diarizer`. Both pools fill inside
   the single `flock` in `post_fork`, because both models download on first run.
@@ -58,6 +60,10 @@
   mounted dirs and drops privileges via `setpriv` before starting the server.
 
 #### Changed
+- **A model backend that fails to load no longer stops the server.** The failure is
+  logged and its pool left empty, so `/api/diarize` answers 503 while `/api/stt` keeps
+  serving. Previously the exception surfaced inside the Gunicorn `post_fork` hook and
+  every worker boot-looped.
 - **Pool sizes are read when a pool is initialised**, not bound as default arguments at
   import time, so changing `MODEL_POOL_SIZE` or `DIARIZE_POOL_SIZE` is actually obeyed.
 - **The upload-to-WAV step is shared** by both endpoints instead of duplicated.

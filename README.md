@@ -62,7 +62,7 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 `GET /api/health` returns the pool status. `available` dropping to 0 means every model is currently in flight:
 
 ```json
-{ "status": "ok", "pool_size": 4, "available": 3 }
+{ "status": "ok", "pool_size": 4, "available": 3, "diarize": false }
 ```
 
 `POST /api/stt` accepts a `multipart/form-data` field named `file`, or a raw `audio/*` body. An optional `language` (query string or form field) overrides the server default for that request; `auto` autodetects. On success it returns the text and the elapsed seconds:
@@ -78,7 +78,8 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 ```
 
 ```json
-{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 },
+                { "speaker": 1, "start": 12.20, "end": 19.04 } ], "speakers": 2, "elapsed": 1.23 }
 ```
 
 Two things about those numbers. Turns may overlap, because each speaker channel is scored on its own, so two people talking at once produce two turns covering the same seconds. And the labels are positions in this one recording, ordered by who spoke first: they are not identities, and the same person gets a different number in the next request. Naming a speaker needs an enrollment step that this service does not have. At most eight speakers are distinguished.

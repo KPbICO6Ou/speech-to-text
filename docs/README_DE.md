@@ -62,7 +62,7 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 `GET /api/health` gibt den Status des Pools zurück. Wenn `available` auf 0 fällt, sind gerade alle Modelle in Verwendung:
 
 ```json
-{ "status": "ok", "pool_size": 4, "available": 3 }
+{ "status": "ok", "pool_size": 4, "available": 3, "diarize": false }
 ```
 
 `POST /api/stt` akzeptiert ein `multipart/form-data`-Feld namens `file` oder einen rohen `audio/*`-Body. Ein optionales `language` (Query-String oder Formularfeld) überschreibt für diese Anfrage den Server-Standard; `auto` erkennt die Sprache automatisch. Bei Erfolg werden der Text und die verstrichenen Sekunden zurückgegeben:
@@ -78,7 +78,8 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 ```
 
 ```json
-{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 },
+                { "speaker": 1, "start": 12.20, "end": 19.04 } ], "speakers": 2, "elapsed": 1.23 }
 ```
 
 Zwei Hinweise zu diesen Zahlen. Die Sprechbeiträge dürfen sich überlappen, denn jeder Sprecherkanal wird für sich bewertet, sodass zwei gleichzeitig sprechende Personen zwei Beiträge über dieselben Sekunden erzeugen. Und die Nummern sind Positionen innerhalb dieser einen Aufnahme, geordnet danach, wer zuerst gesprochen hat: Sie sind keine Identitäten, und dieselbe Person erhält bei der nächsten Anfrage eine andere Nummer. Einen Sprecher zu benennen erfordert einen Enrollment-Schritt, den dieser Dienst nicht hat. Es werden höchstens acht Sprecher unterschieden.

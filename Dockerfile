@@ -36,7 +36,16 @@ RUN uv pip install --no-cache \
 # what it was before diarization existed.
 ARG DIARIZE=false
 COPY requirements-diarize.txt /opt/requirements-diarize.txt
-RUN if [ "$DIARIZE" = "true" ]; then uv pip install --no-cache -r requirements-diarize.txt; fi
+# git is here only because the transformers pin is a git+https ref: uv shells out to the git
+# binary and does not vendor one, and this base image has none. It is purged in the same layer
+# so it never reaches the running image, and it can go entirely once the pin is a version.
+RUN if [ "$DIARIZE" = "true" ]; then \
+        apt-get update \
+     && apt-get install -y --no-install-recommends git \
+     && uv pip install --no-cache -r requirements-diarize.txt \
+     && apt-get purge -y git && apt-get autoremove -y \
+     && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # The torch wheel above is a CUDA build chosen on purpose, and the resolutions that follow it
 # are unconstrained: anything depending on torch can replace it, and the failure surfaces much
@@ -46,6 +55,11 @@ RUN if [ "$DIARIZE" = "true" ]; then \
         python3 -c "from transformers.models.auto.configuration_auto import CONFIG_MAPPING_NAMES; \
 assert 'nemotron3_diarization' in CONFIG_MAPPING_NAMES, 'this transformers build does not carry the diarization model'"; \
     fi
+
+# The stt user is created with --no-create-home and only the bind-mounted dirs are chowned,
+# so anything HuggingFace writes outside them fails. cache_dir covers the snapshot; HF_HOME
+# covers the rest, including the Xet chunk cache.
+ENV HF_HOME=/opt/models/hf
 
 COPY stt_server.py stt_client.py gu.py /opt/
 COPY libs /opt/libs

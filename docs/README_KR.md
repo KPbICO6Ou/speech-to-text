@@ -62,7 +62,7 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 `GET /api/health`는 풀 상태를 반환합니다. `available`이 0으로 떨어지면 모든 모델이 현재 사용 중이라는 뜻입니다.
 
 ```json
-{ "status": "ok", "pool_size": 4, "available": 3 }
+{ "status": "ok", "pool_size": 4, "available": 3, "diarize": false }
 ```
 
 `POST /api/stt`는 `file`이라는 이름의 `multipart/form-data` 필드 또는 원시 `audio/*` 본문을 받습니다. 선택적인 `language`(쿼리 문자열 또는 폼 필드)는 해당 요청에 대해 서버 기본값을 덮어쓰며, `auto`는 자동으로 감지합니다. 성공하면 텍스트와 소요 시간(초)을 반환합니다.
@@ -78,7 +78,8 @@ curl -X POST localhost:5099/api/diarize -F file=@meeting.wav
 ```
 
 ```json
-{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 } ], "speakers": 2, "elapsed": 1.23 }
+{ "segments": [ { "speaker": 0, "start": 0.51, "end": 12.62 },
+                { "speaker": 1, "start": 12.20, "end": 19.04 } ], "speakers": 2, "elapsed": 1.23 }
 ```
 
 이 숫자들에 대해 두 가지를 알아 두어야 합니다. 먼저, 화자 채널마다 따로 점수를 매기기 때문에 구간이 서로 겹칠 수 있습니다. 두 사람이 동시에 말하면 같은 시간대를 덮는 구간이 두 개 생깁니다. 그리고 화자 번호는 이 녹음 하나 안에서의 순서이며, 먼저 말한 사람부터 매겨집니다. 신원이 아니므로 다음 요청에서는 같은 사람이 다른 번호를 받습니다. 화자에게 이름을 붙이려면 등록 단계가 필요한데, 이 서비스에는 그런 단계가 없습니다. 구분되는 화자는 최대 여덟 명입니다.

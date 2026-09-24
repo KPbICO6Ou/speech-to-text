@@ -11,3 +11,10 @@ transformers @ git+https://github.com/huggingface/transformers@98d39824ed30e684e
 
 # Reading the 16 kHz mono WAV the server hands to the diarizer.
 soundfile>=0.12.1
+
+# The checkpoint's feature extractor is declared @requires(backends=("torch", "librosa")) and
+# builds its mel filterbank with librosa.filters.mel, but transformers ships librosa only in
+# its `audio` extra. Without this line AutoProcessor.from_pretrained raises ImportError and the
+# server never finishes starting. Not `transformers[audio]`: that extra also drags in an
+# unconstrained torchaudio, which is exactly what the +cu130 assertion exists to prevent.
+librosa>=0.10.1

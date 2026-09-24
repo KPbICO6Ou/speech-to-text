@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""HTTP service exposing Whisper transcription: POST /api/stt and GET /api/health."""
+"""HTTP service for speech: POST /api/stt transcribes, POST /api/diarize segments by speaker."""
 
 import io
 import logging
@@ -211,6 +211,10 @@ def diarize_speakers():
     wav_bio = convert_upload(bio)
     if wav_bio is None:
         return build_error_response("Invalid audio data", 400)
+
+    if not model_pool.diarizer_ready():
+        logger.warning("[%s] Diarization enabled but no diarizer loaded", get_request_id())
+        return build_error_response("Diarization unavailable", 503)
 
     try:
         diarizer = model_pool.acquire_diarizer()

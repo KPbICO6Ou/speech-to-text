@@ -13,3 +13,6 @@ pytest-cov>=7.1
 
 # Type stubs
 types-requests>=2.33.0
+
+# Lets the tests import the real libs/diarize.py instead of only its stub.
+soundfile>=0.12.1

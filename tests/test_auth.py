@@ -6,7 +6,7 @@ import io
 import re
 
 from libs import config
-from tests.conftest import make_wav
+from tests.helpers import make_wav
 
 REQ_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 

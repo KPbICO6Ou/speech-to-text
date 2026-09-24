@@ -6,8 +6,8 @@ import io
 import queue
 import re
 
-from libs import model_pool
-from tests.conftest import make_wav
+from libs import config, model_pool
+from tests.helpers import make_wav
 
 REQ_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 
@@ -134,3 +134,44 @@ def test_health_reports_diarization_on(diarize_client):
     assert body["diarize"] is True
     assert body["diarize_pool_size"] == 1
     assert body["diarize_available"] == 1
+
+
+def test_requires_token_when_configured(diarize_client, monkeypatch):
+    """With STT_TOKENS set the endpoint is behind the same auth as /api/stt."""
+    monkeypatch.setattr(config, "STT_TOKENS", {"secret"})
+    assert post_audio(diarize_client).status_code == 401
+
+
+def test_valid_token_is_accepted(diarize_client, monkeypatch):
+    """A configured token gets through to the segments."""
+    monkeypatch.setattr(config, "STT_TOKENS", {"secret"})
+    resp = diarize_client.post(
+        "/api/diarize",
+        data={"file": (io.BytesIO(make_wav(duration_ms=50)), "meeting.wav")},
+        content_type="multipart/form-data",
+        headers={"Authorization": "Bearer secret"},
+    )
+    assert resp.status_code == 200
+
+
+def test_backend_receives_the_converted_wav_and_the_pooled_diarizer(diarize_client, monkeypatch, diarize_module):
+    """The route must hand over the converted buffer and the borrowed instance, not the raw upload."""
+    seen = {}
+
+    def capture(bio, diarizer=None, threshold=None):
+        """Stand in for diarize_wav and record what the route passed."""
+        seen["header"] = bio.read(4)
+        seen["diarizer"] = diarizer
+        return []
+
+    monkeypatch.setattr(diarize_module, "diarize_wav", capture)
+
+    resp = diarize_client.post(
+        "/api/diarize",
+        data={"file": (io.BytesIO(make_wav(duration_ms=50)), "meeting.mp3")},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 200
+    # convert_to_wav always exports RIFF, whatever the upload claimed to be.
+    assert seen["header"] == b"RIFF"
+    assert seen["diarizer"] == "diarizer-sentinel"

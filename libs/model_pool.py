@@ -5,6 +5,7 @@
 import logging
 import queue
 import time
+import traceback
 from typing import Any
 
 # Local imports
@@ -15,8 +16,18 @@ logger = logging.getLogger(__name__)
 # How long a request waits for a free model before the pool is declared exhausted.
 MODEL_ACQUIRE_TIMEOUT = 120
 
+# The diarizer gets a much shorter bound. Transcription is minutes of work, so waiting for it
+# is reasonable; diarization is a fraction of realtime, so a wait this long means the pool is
+# genuinely oversubscribed, and parking a WSGI thread for two minutes starves everything else,
+# including the healthcheck.
+DIARIZER_ACQUIRE_TIMEOUT = 30
+
 MODEL_POOL: queue.Queue = queue.Queue()
 DIARIZER_POOL: queue.Queue = queue.Queue()
+
+# How many diarizers actually loaded. Zero with diarization switched on means loading failed,
+# which is not the same as "all of them are busy" and must not cost a request the full timeout.
+DIARIZERS_LOADED = 0
 
 
 def init_model_pool(size: int | None = None) -> None:
@@ -45,11 +56,28 @@ def init_diarizer_pool(size: int | None = None) -> None:
         logger.info("Diarization disabled (DIARIZE_ENABLED is false); no diarizer loaded")
         return
 
+    global DIARIZERS_LOADED
+
     size = config.DIARIZE_POOL_SIZE if size is None else size
     logger.info("Initializing %d diarizer instances (%s)...", size, config.DIARIZE_MODEL)
     for number in range(1, size + 1):
         start_time = time.monotonic()
-        DIARIZER_POOL.put(diarize.get_diarizer())
+        try:
+            DIARIZER_POOL.put(diarize.get_diarizer())
+            DIARIZERS_LOADED += 1
+        except Exception as exc:
+            # An optional backend must fail optionally. Raising here would abort main(), and
+            # under Gunicorn it would raise inside post_fork and boot-loop every worker, so a
+            # missing diarization dependency would take transcription down with it. Leave the
+            # pool empty instead: /api/diarize answers 503 and /api/stt keeps serving.
+            logger.error(
+                "Diarizer #%d failed to load, diarization will be unavailable: %s: %s\n%s",
+                number,
+                type(exc).__name__,
+                exc,
+                traceback.format_exc(),
+            )
+            return
         logger.info("Diarizer #%d ready (%.2fs)", number, time.monotonic() - start_time)
     logger.info("Diarizer pool ready: %d instances", DIARIZER_POOL.qsize())
 
@@ -64,7 +92,16 @@ def release_model(model: Any) -> None:
     MODEL_POOL.put(model)
 
 
-def acquire_diarizer(timeout: int = MODEL_ACQUIRE_TIMEOUT) -> Any:
+def diarizer_ready() -> bool:
+    """Whether a diarizer exists at all, as opposed to every one of them being busy.
+
+    True as soon as one instance was loaded, or as soon as the pool holds anything, so a test
+    that fills the pool directly is served without also setting the counter.
+    """
+    return DIARIZERS_LOADED > 0 or not DIARIZER_POOL.empty()
+
+
+def acquire_diarizer(timeout: int = DIARIZER_ACQUIRE_TIMEOUT) -> Any:
     """Take a diarizer out of its pool; raises queue.Empty when none frees up in time."""
     return DIARIZER_POOL.get(timeout=timeout)
 

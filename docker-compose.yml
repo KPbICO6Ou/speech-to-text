@@ -31,10 +31,14 @@ services:
       NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
       # Force CUDA backend.
       COMPUTE_TYPE: "cuda"
-      # Speaker diarization. Switching this on needs an image built with DIARIZE=true;
-      # otherwise the model is simply not installed and /api/diarize answers 503.
-      DIARIZE_ENABLED: "${DIARIZE:-false}"
+      # DIARIZE_ENABLED is deliberately NOT set here: `environment:` overrides `env_file:`, so
+      # pinning it would silently ignore the value in .env, which is where every document says
+      # to put it. It is a runtime switch; DIARIZE above is the build arg. Turning it on for an
+      # image built without the backend answers 503 and logs why, rather than failing to start.
       DIARIZE_POOL_SIZE: "1"
+      # Pinned to the mount for the same reason WHISPER_DOWNLOAD_ROOT is: entrypoint.sh chowns
+      # exactly these paths, and a cache anywhere else is a PermissionError for the stt user.
+      DIARIZE_DOWNLOAD_ROOT: "/opt/models"
     ports:
       - "${STT_PORT:-5099}:${STT_PORT:-5099}"
     volumes:

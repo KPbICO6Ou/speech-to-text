@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Test fixtures: stub the model backends before stt_server is imported, expose a Flask test client."""
+"""Test fixtures: stub the model backends before stt_server is imported, expose a Flask test client.
 
-import io
+Helpers live in tests/helpers.py. Importing them from here instead would make a test module do
+`from tests.conftest import ...`, which executes this file a SECOND time under a second name and
+leaves two rival sets of stubs in sys.modules.
+"""
+
 import os
 import queue
 import sys
 import types
-import wave
 
 import pytest
 
@@ -67,6 +70,9 @@ def client(monkeypatch):
     pool.put("model-sentinel")
     monkeypatch.setattr(model_pool, "MODEL_POOL", pool)
     monkeypatch.setattr(config, "MODEL_POOL_SIZE", 1)
+    # Pinned rather than inherited: a machine with DIARIZE_ENABLED set in its environment would
+    # otherwise turn the disabled-build test into a real pool wait.
+    monkeypatch.setattr(config, "DIARIZE_ENABLED", False)
     return stt_server.app.test_client()
 
 
@@ -91,15 +97,3 @@ def diarize_client(client, monkeypatch):
     monkeypatch.setattr(config, "DIARIZE_ENABLED", True)
     monkeypatch.setattr(config, "DIARIZE_POOL_SIZE", 1)
     return client
-
-
-def make_wav(duration_ms: int = 100, sample_rate: int = 16000) -> bytes:
-    """Build a valid silent 16-bit mono PCM WAV using stdlib wave."""
-    n_frames = int(sample_rate * duration_ms / 1000)
-    buf = io.BytesIO()
-    with wave.open(buf, "wb") as writer:
-        writer.setnchannels(1)
-        writer.setsampwidth(2)
-        writer.setframerate(sample_rate)
-        writer.writeframes(b"\x00\x00" * n_frames)
-    return buf.getvalue()
