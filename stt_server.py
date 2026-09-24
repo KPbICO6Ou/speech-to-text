@@ -5,7 +5,6 @@
 import io
 import logging
 import queue
-import re
 import time
 import traceback
 import uuid
@@ -23,8 +22,8 @@ from libs.errors import build_error_response, get_request_id, register_error_han
 logs.setup_logging()
 logger = logging.getLogger(__name__)
 
-# Accepted per-request language: an ISO code (2-3 letters) or "auto" (autodetect).
-LANGUAGE_RE = re.compile(r"^[a-z]{2,3}$")
+# The value that asks the backend to detect the language rather than be told it.
+AUTODETECT = "auto"
 
 # Path whose access log is demoted to DEBUG so healthchecks do not flood the log.
 QUIET_PATH = "/api/health"
@@ -92,9 +91,16 @@ def read_language_argument() -> str | None:
     return language.strip().lower() or None
 
 
-def is_valid_language(language: str) -> bool:
-    """Accept "auto" and ISO-like codes only, so junk never reaches Whisper as a 500."""
-    return language == "auto" or bool(LANGUAGE_RE.match(language))
+def resolve_language(language: str) -> str | None:
+    """Resolve a requested language against what the backend actually knows.
+
+    Returns the code to pass on, or None when the backend knows no such language, which the
+    caller turns into a 400. A shape check cannot do this job in either direction: `zz` looks
+    like a code and is not one, and `russian` is not a code but is a spelling Whisper accepts.
+    """
+    if language == AUTODETECT:
+        return AUTODETECT
+    return stt.normalize_language_code(language)
 
 
 def convert_upload(bio):
@@ -161,8 +167,10 @@ def transcribe():
     size_kb = len(bio.getvalue()) // 1024
 
     language = read_language_argument()
-    if language is not None and not is_valid_language(language):
-        return build_error_response("Invalid language", 400)
+    if language is not None:
+        language = resolve_language(language)
+        if language is None:
+            return build_error_response("Invalid language", 400)
 
     wav_bio = convert_upload(bio)
     if wav_bio is None:

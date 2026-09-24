@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+语言可以用代码（`ru`）或其英文名称（`russian`）给出；模型不认识的值会以 `400` 拒绝，而不是在转写中途失败。`GET /api/models` 会列出它认识的语言。
+
 `GET /api/models` 会报告本服务器所具备的能力，因此客户端无需猜测。每个后端都带有自己的语言列表，因为这些集合确实存在差异，而一个合并后的列表对任何单独的后端来说都是错误的。
 
 ```bash

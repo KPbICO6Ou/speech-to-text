@@ -71,6 +71,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+La langue peut être donnée sous forme de code (`ru`) ou par son nom anglais (`russian`) ; toute valeur inconnue du modèle est refusée avec `400` plutôt que d'échouer au milieu d'une transcription. `GET /api/models` énumère celles qu'il connaît.
+
 `GET /api/models` indique ce que ce serveur embarque, afin qu'un client n'ait pas à le deviner. Chaque backend apporte sa propre liste de langues, car les ensembles divergent réellement et une liste fusionnée serait fausse pour chaque backend pris isolément.
 
 ```bash

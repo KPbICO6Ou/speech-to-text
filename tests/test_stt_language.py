@@ -67,11 +67,41 @@ def test_language_empty_is_none(client, stt_module, monkeypatch):
     assert seen["language"] is None
 
 
-def test_invalid_language_400(client):
-    """Anything that is not an ISO-like code or ``auto`` is rejected before Whisper sees it."""
-    resp = client.post("/api/stt?language=russian", data=make_wav(), content_type="audio/wav")
+def test_unknown_language_400(client):
+    """A language the backend does not know is refused here, rather than raising there.
+
+    `zz` has the shape of a code and is not one. The old shape check let it through, Whisper
+    raised on it, and the broad handler turned that into a 500.
+    """
+    resp = client.post("/api/stt?language=zz", data=make_wav(), content_type="audio/wav")
     assert resp.status_code == 400
     body = resp.get_json()
     assert body["error"] == "Invalid language"
     assert set(body.keys()) == {"error", "request_id"}
     assert REQ_ID_RE.match(body["request_id"])
+
+
+def test_language_name_is_resolved_to_its_code(client, stt_module, monkeypatch):
+    """A full English name is what Whisper itself accepts, so the server accepts it too.
+
+    The previous behaviour refused `russian` with a 400 although the backend understood it.
+    """
+    seen = capture_language(stt_module, monkeypatch)
+    resp = client.post("/api/stt?language=russian", data=make_wav(), content_type="audio/wav")
+    assert resp.status_code == 200
+    assert seen["language"] == "ru"
+
+
+def test_language_name_is_case_insensitive(client, stt_module, monkeypatch):
+    """Casing is the caller's business, not the server's."""
+    seen = capture_language(stt_module, monkeypatch)
+    resp = client.post("/api/stt?language=RUSSIAN", data=make_wav(), content_type="audio/wav")
+    assert resp.status_code == 200
+    assert seen["language"] == "ru"
+
+
+def test_a_typo_is_still_refused(client):
+    """Resolution must not be so generous that a misspelling silently transcribes as something else."""
+    resp = client.post("/api/stt?language=russsian", data=make_wav(), content_type="audio/wav")
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Invalid language"

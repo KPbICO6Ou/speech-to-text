@@ -59,6 +59,11 @@
   linked from the language switcher at the top of each README.
 
 #### Fixed
+- **`language` is checked against what the model knows, not against a regex.** The old
+  shape check was wrong in both directions: `?language=zz` has the shape of a code, so it
+  passed, reached Whisper, raised there and surfaced as a `500`; `?language=russian` was
+  refused with `400` although Whisper accepts that spelling. Both now behave: an unknown
+  language is a `400` before any audio is decoded, and a name resolves to its code.
 - **First-run model download into bind-mounted `./models`.** The container
   runs as the unprivileged `stt` user while the host-owned bind mounts stayed
   root-owned, so `whisper.load_model` died with `PermissionError` (same trap

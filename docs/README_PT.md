@@ -71,6 +71,8 @@ O `POST /api/stt` aceita um campo `multipart/form-data` chamado `file`, ou um co
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
+O idioma pode ser informado como código (`ru`) ou pelo seu nome em inglês (`russian`); qualquer valor que o modelo não conheça é recusado com `400` em vez de falhar no meio de uma transcrição. `GET /api/models` lista os que ele conhece.
+
 O `GET /api/models` informa o que este servidor oferece, para que um cliente não precise adivinhar. Cada backend traz a sua própria lista de idiomas, porque os conjuntos realmente divergem e uma lista mesclada estaria errada para cada backend por si só.
 
 ```bash
