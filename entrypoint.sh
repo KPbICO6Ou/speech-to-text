@@ -5,4 +5,7 @@
 # privileges and run the command.
 set -eu
 chown -R stt:stt /opt/models /opt/logs /opt/recs
-exec setpriv --reuid stt --regid stt --clear-groups /bin/sh -c "$*"
+# The inner `exec` matters: without it the shell stays PID 1 as the server's parent and does not
+# forward SIGTERM, so every stop and redeploy waited out Docker's 10 s grace period and then
+# SIGKILLed the server with requests still in flight.
+exec setpriv --reuid stt --regid stt --clear-groups /bin/sh -c "exec $*"

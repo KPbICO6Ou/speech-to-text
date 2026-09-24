@@ -117,3 +117,12 @@ def test_word_level_input_follows_a_quick_handover():
     turns = [turn(0, 0.0, 0.65), turn(1, 0.65, 1.4)]
     result = align.attribute_segments(words, turns)
     assert [(r["speaker"], r["text"]) for r in result] == [(0, "so where"), (1, "green now")]
+
+
+def test_a_segment_with_no_text_is_dropped():
+    """A whitespace-only segment is not speech; it must not surface as an empty run."""
+    result = align.attribute_segments(
+        [segment(0.0, 1.0, " hello"), segment(1.0, 1.1, "  "), segment(1.1, 2.0, " there")],
+        [turn(0, 0.0, 2.5)],
+    )
+    assert [r["text"] for r in result] == ["hello there"]

@@ -71,7 +71,7 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
 { "text": "transcribed text", "elapsed": 1.23 }
 ```
 
-Die Sprache kann als Code (`ru`) oder mit ihrem englischen Namen (`russian`) angegeben werden; was das Modell nicht kennt, wird mit `400` abgelehnt, statt mitten in einer Transkription zu scheitern. `GET /api/models` listet auf, was es kennt.
+Die Sprache kann als Code (`ru`) oder mit ihrem englischen Namen (`russian`) angegeben werden; was das Modell nicht kennt, wird mit `400` abgelehnt, statt mitten in einer Transkription zu scheitern. `GET /api/models` listet auf, was es kennt. Das gilt für Backends, die eine Sprache annehmen (`accepts_language: true`). Parakeet erkennt die Sprache selbst und ignoriert den Wert, und es kann Sprache, bei der es unsicher ist, ohne Hinweis auslassen: In einer mehrsprachigen Aufnahme liefert es für die Minderheitensprache unter Umständen gar nichts.
 
 `GET /api/models` gibt an, was dieser Server mitbringt, sodass ein Client nicht raten muss. Jedes Backend bringt seine eigene Sprachliste mit, denn die Mengen weichen tatsächlich voneinander ab, und eine zusammengeführte Liste wäre für jedes Backend einzeln falsch.
 

@@ -74,6 +74,16 @@
   linked from the language switcher at the top of each README.
 
 #### Fixed
+- **The container stops cleanly.** `entrypoint.sh` ran the server under `/bin/sh -c` without
+  `exec`, so the shell stayed PID 1, never forwarded SIGTERM, and every stop and redeploy
+  waited out Docker's 10 s grace period and then SIGKILLed the server with requests in flight
+  (seen on the deployment host as exit 137 on every restart).
+- **No empty segments in a speaker transcript.** A whitespace-only token became a segment of
+  its own, `{"speaker": null, "text": ""}`.
+- **The README no longer promises a 400 for an unknown language under Parakeet.** That holds
+  only for a backend with `accepts_language: true`; Parakeet accepts and ignores the value,
+  and the README and its translations now also say that it can drop speech it is unsure of
+  without signalling it.
 - **A speaker-attributed transcript no longer merges across another speaker's turn.**
   Found on the deployment host: when the transcriber produced no words for one voice, the
   other voice's two phrases merged into one run that claimed a single person spoke straight

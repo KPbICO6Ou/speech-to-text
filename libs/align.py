@@ -76,9 +76,13 @@ def attribute_segments(segments: list[dict[str, Any]], turns: list[dict[str, Any
     """
     attributed: list[dict[str, Any]] = []
     for segment in segments:
+        text = segment["text"].strip()
+        # Found live: a whitespace-only token became a segment of its own, `{"speaker": null,
+        # "text": ""}`. Nothing was said there, so there is nothing to attribute.
+        if not text:
+            continue
         speaker = assign_speaker(segment, turns)
         overlapped = is_overlapped(segment, speaker, turns)
-        text = segment["text"].strip()
         if attributed and continues_run(attributed[-1], segment, speaker, turns):
             previous = attributed[-1]
             previous["end"] = round(float(segment["end"]), 2)
