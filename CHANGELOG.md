@@ -136,6 +136,11 @@
   with `Invalid value for config`. The default `python3 stt_server.py` run was not affected.
   Gunicorn 26's control socket is turned off in the same file: it defaults to a path under
   `$HOME`, which the unprivileged server user cannot write, and nothing here uses it.
+- **A bearer token with non-ASCII characters is a 401, not a 500.** `hmac.compare_digest`
+  raised `TypeError` on such a string, so such a header failed `/api/stt`
+  with a 500 and, now that health reads the token for its detailed body, made the open
+  `GET /api/health` fail too. Tokens are compared as UTF-8 bytes; health answers 200 with
+  the non-detailed body.
 - **A known language outside the model's slice is a 400, not a 500.** `?language=yue` on a
   99-language checkpoint passed the check and raised inside Whisper; it is now
   `400 Unsupported language` before any audio is decoded.

@@ -26,8 +26,15 @@ def read_bearer_token() -> str:
 
 
 def is_valid_token(token: str) -> bool:
-    """Compare the token against every configured one in constant time."""
-    return bool(token) and any(hmac.compare_digest(token, valid) for valid in config.STT_TOKENS)
+    """Compare the token against every configured one in constant time.
+
+    Both sides are compared as UTF-8 bytes: hmac.compare_digest raises TypeError on a str
+    with non-ASCII characters, which would turn a stray header into a 500.
+    """
+    if not token:
+        return False
+    token_bytes = token.encode("utf-8", "surrogateescape")
+    return any(hmac.compare_digest(token_bytes, valid.encode("utf-8", "surrogateescape")) for valid in config.STT_TOKENS)
 
 
 def is_request_authorized() -> bool:
