@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Which module transcribes. Resolved at call time so STT_BACKEND is obeyed, not cached."""
+"""Which module transcribes. Resolved at call time so STT_BACKEND and STT_MODELS are obeyed, not cached."""
 
 import logging
 from types import ModuleType
@@ -10,10 +10,11 @@ from libs import config, parakeet, stt
 
 logger = logging.getLogger(__name__)
 
-# Every value here exports the same four names with the same signatures - get_model,
-# get_stt_bio, get_stt_segments and describe_backend - so callers resolve the MODULE and
-# then call it by name. A dispatcher that resolved the function instead would silently
-# defeat every test that patches `stt.get_stt_bio`.
+# Every value here exports the same names with the same signatures - get_model, get_stt_result,
+# get_stt_bio, get_stt_segments, describe_backend, resolve_languages, list_aliases and
+# list_known_models - so callers resolve the MODULE and then call it by name. A dispatcher that
+# resolved the function instead would silently defeat every test that patches
+# `stt.get_stt_result`.
 TRANSCRIBERS: dict[str, ModuleType] = {"whisper": stt, "parakeet": parakeet}
 
 DEFAULT_TRANSCRIBER = "whisper"
@@ -32,8 +33,13 @@ def transcriber_name() -> str:
 
 
 def transcriber() -> ModuleType:
-    """The module that transcribes for this deployment."""
+    """The module that transcribes for a single-model deployment (STT_MODELS empty)."""
     return TRANSCRIBERS[transcriber_name()]
+
+
+def transcriber_for_backend(name: str) -> ModuleType:
+    """The module of one named backend; raises KeyError for a name that is not a backend."""
+    return TRANSCRIBERS[name]
 
 
 def resolve_language(language: str) -> str | None:
