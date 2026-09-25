@@ -43,7 +43,7 @@ STT_DEFAULT_MODEL=turbo    # o modelo de uma requisição sem `model`; vazio sig
 
 A escolha acontece apenas entre os modelos carregados na inicialização: uma requisição nunca dispara um download nem um carregamento, e um modelo que não está carregado é recusado com `400`. Cada modelo da lista ocupa memória enquanto o servidor estiver rodando, aproximadamente `workers x (pool x tamanho do modelo)` somado sobre a lista, mais o diarizador. `turbo@2,small@1,parakeet@1` em uma GPU ocupa cerca de 12 + 2 + 3 = 17 GB por processo. No gunicorn, cada worker sync atende uma requisição por vez, então dê `@1` a cada entrada e escale com `GUNICORN_WORKERS`. Uma entrada sem `@pool` recebe `STT_POOL_SIZE`, que fora do Docker vale 8, então escreva `@N` explicitamente. Carregar vários modelos grandes demora mais do que carregar um, então aumente o `start_period` do healthcheck no arquivo compose se o contêiner for marcado como unhealthy durante a inicialização.
 
-Com `STT_MODELS` vazio, `STT_BACKEND`, `WHISPER_MODEL` e `PARAKEET_MODEL` escolhem o modelo único como antes, e o servidor carrega exatamente o que carregava antes; as respostas apenas ganham campos. Quando ele está definido, essas variáveis deixam de decidir o que é carregado. No Docker, coloque `STT_MODELS` e `STT_DEFAULT_MODEL` no `.env`, não no bloco `environment:` do compose, que sobrescreve o `.env`. Uma entrada do Parakeet continua exigindo uma imagem construída com `PARAKEET=true`, e o servidor se recusa a iniciar com um backend desconhecido, com os mesmos pesos listados duas vezes (`turbo` e `large-v3-turbo`) ou com um `STT_DEFAULT_MODEL` que não está na lista. Um modelo informado como caminho de arquivo é servido pelo nome do arquivo sem `.pt`, de modo que o caminho nunca chega a um cliente.
+Com `STT_MODELS` vazio, `STT_BACKEND`, `WHISPER_MODEL` e `PARAKEET_MODEL` escolhem o modelo único como antes, e o servidor carrega exatamente o que carregava antes; as respostas apenas ganham campos. Quando ele está definido, essas variáveis deixam de decidir o que é carregado. No Docker, coloque `STT_MODELS` e `STT_DEFAULT_MODEL` no `.env`, não no bloco `environment:` do compose, que sobrescreve o `.env`. Uma entrada do Parakeet continua exigindo uma imagem construída com `PARAKEET=true`, e o servidor se recusa a iniciar com um backend desconhecido, com os mesmos pesos listados duas vezes (`turbo` e `large-v3-turbo`) ou com um `STT_DEFAULT_MODEL` que não está na lista. Um modelo informado como caminho de arquivo é servido pelo nome do arquivo sem `.pt`, de modo que o caminho nunca chega a um cliente. `STT_DEFAULT_MODEL` pode indicar uma entrada assim por esse nome ou pelo caminho exatamente como está escrito em `STT_MODELS`, e os idiomas dela são os do checkpoint que o nome do arquivo indica: `/models/large-v3.pt` conhece o que `large-v3` conhece. Duas entradas que seriam servidas com o mesmo nome (`/a/model.pt` e `/b/model.pt`), ou uma entrada servida com o nome de um backend (`/models/parakeet.pt`), impedem o servidor de iniciar.
 
 ### Início rápido (Docker)
 
@@ -94,6 +94,8 @@ O `GET /api/health` retorna o status dos pools. Os campos `pool_size` e `availab
   "models": { "turbo": { "backend": "whisper", "pool_size": 2, "available": 1 },
               "nvidia/parakeet-tdt-0.6b-v3": { "backend": "parakeet", "pool_size": 1, "available": 1 } } }
 ```
+
+Quando `STT_TOKENS` está definido, `default_model` e `models` só aparecem na resposta a uma requisição com um token válido: assim como `GET /api/models`, eles descrevem a configuração do servidor. Um healthcheck sem token continua recebendo `status`, `pool_size`, `available` e `diarize`.
 
 O `POST /api/stt` aceita um campo `multipart/form-data` chamado `file` ou um corpo `audio/*` bruto. Um `model` opcional (na query string ou como campo de formulário) escolhe um dos modelos carregados: seu id, um alias (`large-v3-turbo`, `parakeet-tdt-0.6b-v3`), a forma `backend:model` ou apenas o nome de um backend, que significa o modelo padrão se ele pertencer a esse backend e, caso contrário, o primeiro modelo desse backend. Sem `model`, responde o modelo padrão. Um `language` opcional (na query string ou como campo de formulário) substitui o padrão do servidor para aquela requisição; `auto` ativa a detecção automática. Em caso de sucesso, retorna o texto, os segundos decorridos, o modelo que transcreveu e o idioma: o código que o Whisper detectou ou usou (sempre `en` em um modelo só de inglês), ou `null` no Parakeet, que não o informa.
 
@@ -292,7 +294,7 @@ speech-to-text/
 │   ├── stream.py        # live transcription core: pauses, phrases, per-phrase transcription
 │   ├── stt.py           # Whisper wrapper
 │   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
-│   ├── backends.py      # which module transcribes, per STT_BACKEND
+│   ├── backends.py      # backend name -> transcriber module (STT_BACKEND or an STT_MODELS entry)
 │   ├── registry.py      # which models are loaded and what a request may select
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

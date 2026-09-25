@@ -43,7 +43,7 @@ STT_DEFAULT_MODEL=turbo    # बिना `model` वाले अनुरो�
 
 चुनाव केवल स्टार्टअप पर लोड किए गए मॉडलों में से होता है: कोई अनुरोध कभी डाउनलोड या लोडिंग शुरू नहीं करता, और जो मॉडल लोड नहीं है उसे `400` के साथ अस्वीकार किया जाता है। सूची का हर मॉडल सर्वर चलने तक मेमोरी लेता है, मोटे तौर पर पूरी सूची पर जोड़ा गया `वर्कर x (पूल x मॉडल का आकार)`, और साथ में डायराइज़र। GPU पर `turbo@2,small@1,parakeet@1` प्रति प्रोसेस लगभग 12 + 2 + 3 = 17 GB है। gunicorn में हर sync वर्कर एक समय में एक ही अनुरोध संभालता है, इसलिए हर प्रविष्टि को `@1` दें और `GUNICORN_WORKERS` से स्केल करें। बिना `@pool` वाली प्रविष्टि को `STT_POOL_SIZE` मिलता है, जो Docker के बाहर 8 है, इसलिए `@N` स्पष्ट रूप से लिखें। कई बड़े मॉडल लोड करने में एक से अधिक समय लगता है, इसलिए यदि स्टार्टअप के दौरान कंटेनर unhealthy चिह्नित हो जाए तो compose फ़ाइल में healthcheck का `start_period` बढ़ाएँ।
 
-`STT_MODELS` खाली होने पर `STT_BACKEND`, `WHISPER_MODEL` और `PARAKEET_MODEL` पहले की तरह एकमात्र मॉडल चुनते हैं, और सर्वर ठीक वही लोड करता है जो पहले करता था; प्रतिक्रियाओं में केवल नए फ़ील्ड जुड़ते हैं। इसके सेट होने पर ये चर तय नहीं करते कि क्या लोड होगा। Docker में `STT_MODELS` और `STT_DEFAULT_MODEL` को `.env` में रखें, compose के `environment:` ब्लॉक में नहीं, जो `.env` को ओवरराइड करता है। Parakeet प्रविष्टि के लिए अब भी `PARAKEET=true` के साथ बनी इमेज चाहिए, और अज्ञात बैकएंड, दो बार सूचीबद्ध एक ही वेट (`turbo` और `large-v3-turbo`) या सूची में न मौजूद `STT_DEFAULT_MODEL` होने पर सर्वर शुरू होने से इनकार करता है। फ़ाइल पथ के रूप में दिया गया मॉडल `.pt` के बिना उसके फ़ाइल नाम से उपलब्ध कराया जाता है, ताकि पथ कभी किसी क्लाइंट तक न पहुँचे।
+`STT_MODELS` खाली होने पर `STT_BACKEND`, `WHISPER_MODEL` और `PARAKEET_MODEL` पहले की तरह एकमात्र मॉडल चुनते हैं, और सर्वर ठीक वही लोड करता है जो पहले करता था; प्रतिक्रियाओं में केवल नए फ़ील्ड जुड़ते हैं। इसके सेट होने पर ये चर तय नहीं करते कि क्या लोड होगा। Docker में `STT_MODELS` और `STT_DEFAULT_MODEL` को `.env` में रखें, compose के `environment:` ब्लॉक में नहीं, जो `.env` को ओवरराइड करता है। Parakeet प्रविष्टि के लिए अब भी `PARAKEET=true` के साथ बनी इमेज चाहिए, और अज्ञात बैकएंड, दो बार सूचीबद्ध एक ही वेट (`turbo` और `large-v3-turbo`) या सूची में न मौजूद `STT_DEFAULT_MODEL` होने पर सर्वर शुरू होने से इनकार करता है। फ़ाइल पथ के रूप में दिया गया मॉडल `.pt` के बिना उसके फ़ाइल नाम से उपलब्ध कराया जाता है, ताकि पथ कभी किसी क्लाइंट तक न पहुँचे। `STT_DEFAULT_MODEL` ऐसी प्रविष्टि को उसी नाम से या `STT_MODELS` में ठीक जैसा लिखा है उसी पथ से बता सकता है, और उसकी भाषाएँ उस चेकपॉइंट की होती हैं जिसका नाम फ़ाइल नाम में है: `/models/large-v3.pt` वही जानता है जो `large-v3` जानता है। दो प्रविष्टियाँ जो एक ही नाम से परोसी जाएँगी (`/a/model.pt` और `/b/model.pt`), या कोई प्रविष्टि जो किसी बैकएंड के नाम से परोसी जाएगी (`/models/parakeet.pt`), स्टार्टअप पर सर्वर को रोक देती हैं।
 
 ### त्वरित प्रारंभ (Docker)
 
@@ -94,6 +94,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
   "models": { "turbo": { "backend": "whisper", "pool_size": 2, "available": 1 },
               "nvidia/parakeet-tdt-0.6b-v3": { "backend": "parakeet", "pool_size": 1, "available": 1 } } }
 ```
+
+जब `STT_TOKENS` सेट होता है, तो `default_model` और `models` केवल वैध टोकन वाले अनुरोध के जवाब में शामिल होते हैं: `GET /api/models` की तरह ये सर्वर का कॉन्फ़िगरेशन बताते हैं। बिना टोकन वाला हेल्थचेक अब भी `status`, `pool_size`, `available` और `diarize` पाता है।
 
 `POST /api/stt` या तो `file` नाम का `multipart/form-data` फ़ील्ड या कच्चा `audio/*` बॉडी स्वीकार करता है। वैकल्पिक `model` (क्वेरी स्ट्रिंग या फ़ॉर्म फ़ील्ड) लोड किए गए मॉडलों में से एक चुनता है: उसका id, कोई उपनाम (`large-v3-turbo`, `parakeet-tdt-0.6b-v3`), `backend:model` रूप, या केवल बैकएंड का नाम, जिसका अर्थ है डिफ़ॉल्ट मॉडल यदि वह उसी बैकएंड का है, अन्यथा उस बैकएंड का पहला मॉडल। `model` न होने पर डिफ़ॉल्ट मॉडल उत्तर देता है। वैकल्पिक `language` (क्वेरी स्ट्रिंग या फ़ॉर्म फ़ील्ड) उस अनुरोध के लिए सर्वर के डिफ़ॉल्ट को बदल देता है; `auto` अपने आप पहचान करता है। सफल होने पर यह टेक्स्ट, बीते हुए सेकंड, ट्रांसक्राइब करने वाला मॉडल और भाषा लौटाता है: वह कोड जो Whisper ने पहचाना या इस्तेमाल किया (केवल-अंग्रेज़ी मॉडल के लिए हमेशा `en`), या Parakeet के लिए `null`, जो भाषा नहीं बताता।
 
@@ -292,7 +294,7 @@ speech-to-text/
 │   ├── stream.py        # live transcription core: pauses, phrases, per-phrase transcription
 │   ├── stt.py           # Whisper wrapper
 │   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
-│   ├── backends.py      # which module transcribes, per STT_BACKEND
+│   ├── backends.py      # backend name -> transcriber module (STT_BACKEND or an STT_MODELS entry)
 │   ├── registry.py      # which models are loaded and what a request may select
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

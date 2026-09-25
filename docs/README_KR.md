@@ -43,7 +43,7 @@ STT_DEFAULT_MODEL=turbo    # `model`이 없는 요청이 쓰는 모델, 비어 �
 
 선택은 시작할 때 로드된 모델 안에서만 이루어집니다. 요청이 다운로드나 로드를 일으키는 일은 없고, 로드되지 않은 모델은 `400`으로 거부됩니다. 목록의 각 모델은 서버가 실행되는 동안 메모리를 차지하며, 대략 `워커 수 x (풀 x 모델 크기)`를 목록 전체에 대해 더한 값에 화자 분리기를 더한 만큼입니다. GPU에서 `turbo@2,small@1,parakeet@1`은 프로세스당 약 12 + 2 + 3 = 17 GB입니다. gunicorn에서는 각 sync 워커가 한 번에 요청 하나만 처리하므로 모든 항목에 `@1`을 주고 `GUNICORN_WORKERS`로 확장하십시오. `@pool`이 없는 항목은 `STT_POOL_SIZE`를 받는데 Docker 밖에서는 8이므로 `@N`을 명시하십시오. 큰 모델 여러 개를 로드하면 하나보다 오래 걸리므로, 시작하는 동안 컨테이너가 unhealthy로 표시되면 compose 파일의 healthcheck `start_period`를 늘리십시오.
 
-`STT_MODELS`가 비어 있으면 `STT_BACKEND`, `WHISPER_MODEL`, `PARAKEET_MODEL`이 예전처럼 단일 모델을 고르고, 서버는 예전과 정확히 같은 것을 로드합니다. 응답에는 필드만 추가됩니다. 값이 설정되면 이 변수들은 무엇을 로드할지 더 이상 결정하지 않습니다. Docker에서는 `STT_MODELS`와 `STT_DEFAULT_MODEL`을 compose의 `environment:` 블록이 아니라 `.env`에 넣으십시오. `environment:` 블록은 `.env`를 덮어씁니다. Parakeet 항목에는 여전히 `PARAKEET=true`로 빌드한 이미지가 필요하며, 알 수 없는 백엔드, 두 번 나열된 같은 가중치(`turbo`와 `large-v3-turbo`), 목록에 없는 `STT_DEFAULT_MODEL`이 있으면 서버는 시작을 거부합니다. 파일 경로로 지정한 모델은 `.pt`를 뺀 파일 이름으로 제공되므로 경로가 클라이언트에 전달되지 않습니다.
+`STT_MODELS`가 비어 있으면 `STT_BACKEND`, `WHISPER_MODEL`, `PARAKEET_MODEL`이 예전처럼 단일 모델을 고르고, 서버는 예전과 정확히 같은 것을 로드합니다. 응답에는 필드만 추가됩니다. 값이 설정되면 이 변수들은 무엇을 로드할지 더 이상 결정하지 않습니다. Docker에서는 `STT_MODELS`와 `STT_DEFAULT_MODEL`을 compose의 `environment:` 블록이 아니라 `.env`에 넣으십시오. `environment:` 블록은 `.env`를 덮어씁니다. Parakeet 항목에는 여전히 `PARAKEET=true`로 빌드한 이미지가 필요하며, 알 수 없는 백엔드, 두 번 나열된 같은 가중치(`turbo`와 `large-v3-turbo`), 목록에 없는 `STT_DEFAULT_MODEL`이 있으면 서버는 시작을 거부합니다. 파일 경로로 지정한 모델은 `.pt`를 뺀 파일 이름으로 제공되므로 경로가 클라이언트에 전달되지 않습니다. `STT_DEFAULT_MODEL`은 이런 항목을 그 이름으로도, `STT_MODELS`에 적힌 경로 그대로도 지정할 수 있으며, 그 언어는 파일 이름이 가리키는 체크포인트의 언어입니다. `/models/large-v3.pt`는 `large-v3`가 아는 언어를 압니다. 같은 이름으로 제공될 두 항목(`/a/model.pt`와 `/b/model.pt`)이나 백엔드 이름으로 제공될 항목(`/models/parakeet.pt`)이 있으면 서버는 시작할 때 멈춥니다.
 
 ### 빠른 시작 (Docker)
 
@@ -94,6 +94,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
   "models": { "turbo": { "backend": "whisper", "pool_size": 2, "available": 1 },
               "nvidia/parakeet-tdt-0.6b-v3": { "backend": "parakeet", "pool_size": 1, "available": 1 } } }
 ```
+
+`STT_TOKENS`가 설정되어 있으면 `default_model`과 `models`는 유효한 토큰이 있는 요청의 응답에만 포함됩니다. `GET /api/models`처럼 서버 구성을 드러내기 때문입니다. 토큰이 없는 헬스체크도 계속 `status`, `pool_size`, `available`, `diarize`를 받습니다.
 
 `POST /api/stt`는 `file`이라는 이름의 `multipart/form-data` 필드나 원시 `audio/*` 본문을 받습니다. 선택 사항인 `model`(쿼리 문자열 또는 폼 필드)은 로드된 모델 중 하나를 고릅니다. id, 별칭(`large-v3-turbo`, `parakeet-tdt-0.6b-v3`), `backend:model` 형식, 또는 백엔드 이름만 쓸 수 있으며, 백엔드 이름은 기본 모델이 그 백엔드에 속하면 기본 모델을, 아니면 그 백엔드의 첫 번째 모델을 뜻합니다. `model`이 없으면 기본 모델이 응답합니다. 선택 사항인 `language`(쿼리 문자열 또는 폼 필드)는 해당 요청에 한해 서버 기본값을 덮어쓰며, `auto`는 자동 감지합니다. 성공하면 텍스트, 경과 시간(초), 전사한 모델, 언어를 반환합니다. 언어는 Whisper가 감지했거나 사용한 코드(영어 전용 모델은 항상 `en`)이고, 언어를 보고하지 않는 Parakeet은 `null`입니다.
 
@@ -292,7 +294,7 @@ speech-to-text/
 │   ├── stream.py        # live transcription core: pauses, phrases, per-phrase transcription
 │   ├── stt.py           # Whisper wrapper
 │   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
-│   ├── backends.py      # which module transcribes, per STT_BACKEND
+│   ├── backends.py      # backend name -> transcriber module (STT_BACKEND or an STT_MODELS entry)
 │   ├── registry.py      # which models are loaded and what a request may select
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

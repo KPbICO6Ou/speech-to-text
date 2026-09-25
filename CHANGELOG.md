@@ -13,7 +13,10 @@
   before. A malformed list, an unknown backend, the same weights listed twice (`turbo`
   and `large-v3-turbo`) or a default that is not in the list stops the server at startup.
   A file path is served under its basename without `.pt`, so the host's layout never
-  reaches a client.
+  reaches a client, and its languages are those of the checkpoint that name names
+  (`/models/large-v3.pt` knows what `large-v3` knows). `STT_DEFAULT_MODEL` accepts a path
+  entry by that name or as written in `STT_MODELS`. Two entries one name would select, or
+  an entry served under a backend name, stop startup; a pool size must be plain digits.
 - **`model` on `POST /api/stt` and `POST /api/transcript`**, as a query parameter or a form
   field: an id, an alias, `backend:model` or a bare backend name. A name nobody knows is
   `400 Invalid model`; a real model this server did not load is `400 Model not loaded`.
@@ -32,7 +35,9 @@
   selectability and pool.
 - **`GET /api/health` reports every pool.** `default_model` and `models` (per id: backend,
   pool size, available) join the top-level `pool_size` and `available`, which now describe
-  the default model and are unchanged for a single-model deployment.
+  the default model and are unchanged for a single-model deployment. With `STT_TOKENS`
+  set, the model list is only included for a request carrying a valid token: it is
+  configuration, like `/api/models`, and health itself stays open.
 - **Live transcription in the web UI, and from a URL.** TRANSCRIBE gets a FILE / DEVICE
   switch: DEVICE captures a microphone, a headset, a loopback source or a browser tab's sound
   and shows each phrase as a block as soon as it is transcribed. Browsers allow audio devices

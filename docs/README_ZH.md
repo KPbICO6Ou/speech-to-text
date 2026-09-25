@@ -43,7 +43,7 @@ STT_DEFAULT_MODEL=turbo    # 不带 `model` 的请求所用的模型；为空表
 
 只能在启动时加载的模型中选择：请求从不会触发下载或加载，未加载的模型会以 `400` 拒绝。列表中的每个模型在服务器运行期间都会占用内存，大致为 `worker 数 x（池大小 x 模型大小）` 在整个列表上的总和，再加上说话人分离器。在 GPU 上，`turbo@2,small@1,parakeet@1` 每个进程约占 12 + 2 + 3 = 17 GB。在 gunicorn 下，每个 sync worker 一次只处理一个请求，因此请给每个条目设 `@1`，并通过 `GUNICORN_WORKERS` 扩展。没有 `@pool` 的条目使用 `STT_POOL_SIZE`，在 Docker 之外它是 8，因此请显式写出 `@N`。加载多个大模型比加载一个更慢，如果容器在启动期间被标记为 unhealthy，请调大 compose 文件中 healthcheck 的 `start_period`。
 
-`STT_MODELS` 为空时，`STT_BACKEND`、`WHISPER_MODEL` 和 `PARAKEET_MODEL` 像以前一样选择唯一的模型，服务器加载的内容与以前完全相同；响应只是多了一些字段。设置之后，这些变量不再决定加载什么。在 Docker 中，请把 `STT_MODELS` 和 `STT_DEFAULT_MODEL` 写进 `.env`，而不是 compose 的 `environment:` 块，后者会覆盖 `.env`。Parakeet 条目仍然需要用 `PARAKEET=true` 构建的镜像；遇到未知后端、同一权重被列出两次（`turbo` 和 `large-v3-turbo`）或不在列表中的 `STT_DEFAULT_MODEL` 时，服务器会拒绝启动。以文件路径给出的模型以去掉 `.pt` 的文件名对外提供，因此路径永远不会传到客户端。
+`STT_MODELS` 为空时，`STT_BACKEND`、`WHISPER_MODEL` 和 `PARAKEET_MODEL` 像以前一样选择唯一的模型，服务器加载的内容与以前完全相同；响应只是多了一些字段。设置之后，这些变量不再决定加载什么。在 Docker 中，请把 `STT_MODELS` 和 `STT_DEFAULT_MODEL` 写进 `.env`，而不是 compose 的 `environment:` 块，后者会覆盖 `.env`。Parakeet 条目仍然需要用 `PARAKEET=true` 构建的镜像；遇到未知后端、同一权重被列出两次（`turbo` 和 `large-v3-turbo`）或不在列表中的 `STT_DEFAULT_MODEL` 时，服务器会拒绝启动。以文件路径给出的模型以去掉 `.pt` 的文件名对外提供，因此路径永远不会传到客户端。`STT_DEFAULT_MODEL` 可以用这个名称，也可以用与 `STT_MODELS` 中写法完全一致的路径来指定这样的条目；它的语言就是文件名所指检查点的语言：`/models/large-v3.pt` 支持的语言与 `large-v3` 相同。两个会以同一名称提供的条目（`/a/model.pt` 和 `/b/model.pt`），或会以后端名称提供的条目（`/models/parakeet.pt`），都会让服务器在启动时停止。
 
 ### 快速开始（Docker）
 
@@ -94,6 +94,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
   "models": { "turbo": { "backend": "whisper", "pool_size": 2, "available": 1 },
               "nvidia/parakeet-tdt-0.6b-v3": { "backend": "parakeet", "pool_size": 1, "available": 1 } } }
 ```
+
+设置了 `STT_TOKENS` 时，只有携带有效令牌的请求才会在响应中得到 `default_model` 和 `models`：与 `GET /api/models` 一样，它们会暴露服务器的配置。不带令牌的健康检查仍然会得到 `status`、`pool_size`、`available` 和 `diarize`。
 
 `POST /api/stt` 接受名为 `file` 的 `multipart/form-data` 字段，或一个原始的 `audio/*` 请求体。可选的 `model`（查询字符串或表单字段）从已加载的模型中选择一个：可以是它的 id、别名（`large-v3-turbo`、`parakeet-tdt-0.6b-v3`）、`backend:model` 形式，或者只写后端名称；后端名称表示默认模型（如果它属于该后端），否则表示该后端的第一个模型。不带 `model` 时由默认模型处理。可选的 `language`（查询字符串或表单字段）会为该请求覆盖服务器默认值；`auto` 表示自动检测。成功时返回文本、耗时秒数、执行转录的模型以及语言：即 Whisper 检测到或使用的代码（仅英语模型始终为 `en`），Parakeet 不报告语言，因此为 `null`。
 
@@ -292,7 +294,7 @@ speech-to-text/
 │   ├── stream.py        # live transcription core: pauses, phrases, per-phrase transcription
 │   ├── stt.py           # Whisper wrapper
 │   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
-│   ├── backends.py      # which module transcribes, per STT_BACKEND
+│   ├── backends.py      # backend name -> transcriber module (STT_BACKEND or an STT_MODELS entry)
 │   ├── registry.py      # which models are loaded and what a request may select
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

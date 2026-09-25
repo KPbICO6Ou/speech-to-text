@@ -43,7 +43,7 @@ STT_DEFAULT_MODEL=turbo    # `model` のないリクエストが使うモデル�
 
 選べるのは起動時に読み込まれたモデルだけです。リクエストがダウンロードや読み込みを引き起こすことはなく、読み込まれていないモデルは `400` で拒否されます。リストの各モデルはサーバーが動いている間ずっとメモリを使い、その量はおおよそ `ワーカー数 x (プール x モデルサイズ)` をリスト全体で合計したものに、ダイアライザーを加えたものです。GPU 上の `turbo@2,small@1,parakeet@1` はプロセスあたり約 12 + 2 + 3 = 17 GB です。gunicorn では各 sync ワーカーが一度に 1 つのリクエストしか処理しないため、各エントリは `@1` にして `GUNICORN_WORKERS` でスケールしてください。`@pool` のないエントリは `STT_POOL_SIZE` を使い、Docker の外ではこれが 8 なので、`@N` を明示してください。大きなモデルを複数読み込むと 1 つより時間がかかるため、起動中にコンテナが unhealthy と判定される場合は compose ファイルの healthcheck の `start_period` を延ばしてください。
 
-`STT_MODELS` が空なら、これまでどおり `STT_BACKEND`、`WHISPER_MODEL`、`PARAKEET_MODEL` が単一のモデルを選び、サーバーは以前とまったく同じものを読み込みます。レスポンスにはフィールドが増えるだけです。設定されている場合、これらの変数は何を読み込むかを決めなくなります。Docker では `STT_MODELS` と `STT_DEFAULT_MODEL` を `.env` に書いてください。compose の `environment:` ブロックに書くと `.env` を上書きしてしまいます。Parakeet のエントリには引き続き `PARAKEET=true` でビルドしたイメージが必要です。未知のバックエンド、同じ重みの二重指定（`turbo` と `large-v3-turbo`）、リストにない `STT_DEFAULT_MODEL` があると、サーバーは起動を拒否します。ファイルパスで指定したモデルは `.pt` を除いたファイル名で公開されるため、パスがクライアントに届くことはありません。
+`STT_MODELS` が空なら、これまでどおり `STT_BACKEND`、`WHISPER_MODEL`、`PARAKEET_MODEL` が単一のモデルを選び、サーバーは以前とまったく同じものを読み込みます。レスポンスにはフィールドが増えるだけです。設定されている場合、これらの変数は何を読み込むかを決めなくなります。Docker では `STT_MODELS` と `STT_DEFAULT_MODEL` を `.env` に書いてください。compose の `environment:` ブロックに書くと `.env` を上書きしてしまいます。Parakeet のエントリには引き続き `PARAKEET=true` でビルドしたイメージが必要です。未知のバックエンド、同じ重みの二重指定（`turbo` と `large-v3-turbo`）、リストにない `STT_DEFAULT_MODEL` があると、サーバーは起動を拒否します。ファイルパスで指定したモデルは `.pt` を除いたファイル名で公開されるため、パスがクライアントに届くことはありません。 `STT_DEFAULT_MODEL` では、このようなエントリをその名前でも、`STT_MODELS` に書かれたとおりのパスでも指定できます。その言語はファイル名が示すチェックポイントのものになり、`/models/large-v3.pt` は `large-v3` と同じ言語を扱います。同じ名前で提供されることになる 2 つのエントリ (`/a/model.pt` と `/b/model.pt`) や、バックエンド名で提供されることになるエントリ (`/models/parakeet.pt`) があると、サーバーは起動時に停止します。
 
 ### クイックスタート（Docker）
 
@@ -94,6 +94,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
   "models": { "turbo": { "backend": "whisper", "pool_size": 2, "available": 1 },
               "nvidia/parakeet-tdt-0.6b-v3": { "backend": "parakeet", "pool_size": 1, "available": 1 } } }
 ```
+
+`STT_TOKENS` が設定されている場合、`default_model` と `models` は有効なトークンを持つリクエストへの応答にのみ含まれます。`GET /api/models` と同様に、これらはサーバーの構成を示すからです。トークンのないヘルスチェックも引き続き `status`、`pool_size`、`available`、`diarize` を受け取ります。
 
 `POST /api/stt` は `file` という名前の `multipart/form-data` フィールド、または生の `audio/*` ボディを受け付けます。任意の `model`（クエリ文字列またはフォームフィールド）で、読み込まれたモデルの 1 つを選べます。指定できるのは id、エイリアス（`large-v3-turbo`、`parakeet-tdt-0.6b-v3`）、`backend:model` 形式、またはバックエンド名だけで、バックエンド名はデフォルトモデルがそのバックエンドに属していればデフォルトモデルを、そうでなければそのバックエンドの最初のモデルを意味します。`model` がなければデフォルトモデルが応答します。任意の `language`（クエリ文字列またはフォームフィールド）は、そのリクエストに限りサーバーのデフォルトを上書きし、`auto` で自動検出します。成功するとテキスト、経過秒数、文字起こししたモデル、言語を返します。言語は Whisper が検出または使用したコード（英語専用モデルでは常に `en`）で、Parakeet は言語を報告しないため `null` です。
 
@@ -292,7 +294,7 @@ speech-to-text/
 │   ├── stream.py        # live transcription core: pauses, phrases, per-phrase transcription
 │   ├── stt.py           # Whisper wrapper
 │   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
-│   ├── backends.py      # which module transcribes, per STT_BACKEND
+│   ├── backends.py      # backend name -> transcriber module (STT_BACKEND or an STT_MODELS entry)
 │   ├── registry.py      # which models are loaded and what a request may select
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)

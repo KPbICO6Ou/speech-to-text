@@ -49,7 +49,7 @@ STT_DEFAULT_MODEL=turbo    # the model a request without `model` gets; empty mea
 
 Models are chosen only among the ones loaded at startup: a request never triggers a download or a load, and a model that is not loaded is refused with `400`. Every listed model costs memory for as long as the server runs, roughly `workers x (pool x model size)` summed over the list, plus the diarizer. `turbo@2,small@1,parakeet@1` on a GPU is about 12 + 2 + 3 = 17 GB per process. Under gunicorn each sync worker handles one request at a time, so give every entry `@1` and scale with `GUNICORN_WORKERS`. An entry without `@pool` takes `STT_POOL_SIZE`, which is 8 outside Docker, so write `@N` explicitly. Loading several large models takes longer than one, so raise the healthcheck `start_period` in the compose file if the container is marked unhealthy while it starts.
 
-With `STT_MODELS` empty, `STT_BACKEND`, `WHISPER_MODEL` and `PARAKEET_MODEL` choose the single model as before and the server loads exactly what it loaded before; responses only gain fields. With it set they no longer choose what is loaded. In Docker, put `STT_MODELS` and `STT_DEFAULT_MODEL` in `.env`, not in the compose `environment:` block, which overrides `.env`. A Parakeet entry still needs an image built with `PARAKEET=true`, and the server refuses to start on an unknown backend, on the same weights listed twice (`turbo` and `large-v3-turbo`) or on an `STT_DEFAULT_MODEL` that is not in the list. A model given as a file path is served under its file name without `.pt`, so the path never reaches a client.
+With `STT_MODELS` empty, `STT_BACKEND`, `WHISPER_MODEL` and `PARAKEET_MODEL` choose the single model as before and the server loads exactly what it loaded before; responses only gain fields. With it set they no longer choose what is loaded. In Docker, put `STT_MODELS` and `STT_DEFAULT_MODEL` in `.env`, not in the compose `environment:` block, which overrides `.env`. A Parakeet entry still needs an image built with `PARAKEET=true`, and the server refuses to start on an unknown backend, on the same weights listed twice (`turbo` and `large-v3-turbo`) or on an `STT_DEFAULT_MODEL` that is not in the list. A model given as a file path is served under its file name without `.pt`, so the path never reaches a client. `STT_DEFAULT_MODEL` may name such an entry by that name or by the path exactly as written in `STT_MODELS`, and its languages are those of the checkpoint its file name names: `/models/large-v3.pt` knows what `large-v3` knows. Two entries that would be served under one name (`/a/model.pt` and `/b/model.pt`), or an entry that would be served under a backend name (`/models/parakeet.pt`), stop the server at startup.
 
 **Diarization** - `nvidia/Nemotron-3-Diarization`, 100M parameters, about 400 MB of weights. It answers who spoke when for up to eight speakers and produces no text in any language. It needs an image built with `DIARIZE=true` and `DIARIZE_ENABLED=true` at run time, and is documented for NVIDIA GPUs only.
 
@@ -121,6 +121,8 @@ curl -X POST 'localhost:5099/api/stt?language=ru' \
   "models": { "turbo": { "backend": "whisper", "pool_size": 2, "available": 1 },
               "nvidia/parakeet-tdt-0.6b-v3": { "backend": "parakeet", "pool_size": 1, "available": 1 } } }
 ```
+
+With `STT_TOKENS` set, `default_model` and `models` are only included in the answer to a request carrying a valid token: like `GET /api/models`, they name the deployment's configuration. A healthcheck without the token still gets `status`, `pool_size`, `available` and `diarize`.
 
 `POST /api/stt` accepts a `multipart/form-data` field named `file`, or a raw `audio/*` body. An optional `model` (query string or form field) picks one of the loaded models: its id, an alias (`large-v3-turbo`, `parakeet-tdt-0.6b-v3`), the `backend:model` form, or a bare backend name, which means the default model if it belongs to that backend and otherwise that backend's first model. Without `model` the default model serves. An optional `language` (query string or form field) overrides the server default for that request; `auto` autodetects. On success it returns the text, the elapsed seconds, the model that transcribed and the language: the code Whisper detected or used (always `en` for an English-only model), or `null` for Parakeet, which does not report it.
 
@@ -319,7 +321,7 @@ speech-to-text/
 │   ├── stream.py        # live transcription core: pauses, phrases, per-phrase transcription
 │   ├── stt.py           # Whisper wrapper
 │   ├── parakeet.py      # NVIDIA Parakeet wrapper, the second transcriber
-│   ├── backends.py      # which module transcribes, per STT_BACKEND
+│   ├── backends.py      # backend name -> transcriber module (STT_BACKEND or an STT_MODELS entry)
 │   ├── registry.py      # which models are loaded and what a request may select
 │   └── diarize.py       # speaker diarization (who spoke when, no text)
 ├── Dockerfile           # GPU build (CUDA 13.0)
