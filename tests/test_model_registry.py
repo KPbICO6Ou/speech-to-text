@@ -61,13 +61,19 @@ def test_an_entry_without_a_pool_takes_stt_pool_size(client, monkeypatch):
     ("raw", "default", "message"),
     [
         ("vosk:x", "", "unknown backend 'vosk'"),
-        ("whisper:turbo,whisper:large-v3-turbo", "", "the same model twice: 'turbo' and 'large-v3-turbo'"),
-        ("whisper:turbo@1,whisper:turbo@2", "", "the same model twice"),
+        ("whisper:turbo,whisper:large-v3-turbo", "", "'turbo' and 'large-v3-turbo' would both be served as 'large-v3-turbo'"),
+        ("whisper:turbo@1,whisper:turbo@2", "", "'turbo' and 'turbo' would both be served as 'turbo'"),
+        (
+            "parakeet:nvidia/parakeet-x@1,parakeet:acme/parakeet-x@1",
+            "",
+            "'nvidia/parakeet-x' and 'acme/parakeet-x' would both be served as 'parakeet-x'",
+        ),
+        ("whisper:/models/parakeet.pt@1", "", "'/models/parakeet.pt' would be served as 'parakeet', which is a backend name"),
         ("whisper:turbo", "medium", "STT_DEFAULT_MODEL 'medium' is not in STT_MODELS"),
     ],
 )
 def test_validation_refuses_what_cannot_be_served(client, monkeypatch, raw, default, message):
-    """An unknown backend, one set of weights listed twice, or a default nobody loads stops startup."""
+    """An unknown backend, one name for two entries, a backend name as an id, or a default nobody loads stops startup."""
     use_models(monkeypatch, raw, default)
     with pytest.raises(ValueError, match=re.escape(message)):
         registry.validate_model_specs()
@@ -153,7 +159,7 @@ def test_a_file_path_is_served_under_its_basename(client, monkeypatch):
 def test_two_paths_with_one_basename_are_refused(client, monkeypatch):
     """Two files that would be served under the same id are ambiguous, so startup stops."""
     use_models(monkeypatch, "whisper:/a/model.pt@1,whisper:/b/model.pt@1")
-    with pytest.raises(ValueError, match="the same model twice: 'model' and 'model'"):
+    with pytest.raises(ValueError, match="'/a/model.pt' and '/b/model.pt' would both be served as 'model'"):
         registry.validate_model_specs()
 
 

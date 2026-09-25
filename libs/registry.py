@@ -202,14 +202,32 @@ def resolve_language(language: str | None, spec: dict[str, Any], explicit: bool)
     return None, UNSUPPORTED_LANGUAGE
 
 
+def check_backend_name_clash(spec: dict[str, Any]) -> None:
+    """Refuse a spec whose id or alias is a backend name, which the bare backend name would then shadow.
+
+    `whisper:/models/parakeet.pt` would be served as `parakeet`, and `?model=parakeet` would
+    reach that Whisper file instead of the Parakeet model.
+    """
+    for name in list_spec_names(spec):
+        if name in backends.TRANSCRIBERS:
+            raise ValueError(f"STT_MODELS entry '{spec['model']}' would be served as '{name}', which is a backend name")
+
+
 def check_duplicate_specs(specs: list[dict[str, Any]]) -> None:
-    """Refuse two specs that share a selecting name, which means they name the same weights."""
+    """Refuse two specs that one name would select, and any spec a bare backend name would shadow.
+
+    A shared name is not proof of the same weights (two files called model.pt, or two Hugging
+    Face repos with one short name), so the error names the clash rather than guessing why.
+    """
     owners: dict[str, dict[str, Any]] = {}
     for spec in specs:
+        check_backend_name_clash(spec)
         for name in list_spec_names(spec):
             other = owners.get(name)
             if other is not None and other is not spec:
-                raise ValueError(f"STT_MODELS lists the same model twice: '{other['id']}' and '{spec['id']}'")
+                raise ValueError(
+                    f"STT_MODELS entries '{other['model']}' and '{spec['model']}' would both be served as '{name}'"
+                )
             owners[name] = spec
 
 
