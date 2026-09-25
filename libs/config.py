@@ -36,14 +36,15 @@ def build_model_name(model: str) -> str:
 
 
 def parse_pool_size(text: str, entry: str) -> int:
-    """Parse the @pool suffix of one STT_MODELS entry; a positive integer or ValueError."""
-    try:
-        size = int(text.strip())
-    except ValueError:
-        raise ValueError(f"STT_MODELS entry '{entry}' has an invalid pool size") from None
-    if size < 1:
+    """Parse the @pool suffix of one STT_MODELS entry; a positive integer of ASCII digits or ValueError.
+
+    Plain digits only: int() would also take `1_0`, `+2` or full-width digits, and a typo that
+    silently loads ten instances of a large model can exhaust the GPU at startup.
+    """
+    digits = text.strip()
+    if not (digits.isascii() and digits.isdigit()) or int(digits) < 1:
         raise ValueError(f"STT_MODELS entry '{entry}' has an invalid pool size")
-    return size
+    return int(digits)
 
 
 def parse_model_entry(entry: str) -> dict[str, Any]:

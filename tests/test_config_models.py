@@ -47,6 +47,9 @@ def test_empty_entries_are_skipped():
         ("whisper:", "has no model"),
         ("whisper:turbo@x", "has an invalid pool size"),
         ("whisper:turbo@0", "has an invalid pool size"),
+        ("whisper:turbo@1_0", "has an invalid pool size"),
+        ("whisper:turbo@+2", "has an invalid pool size"),
+        ("whisper:turbo@\uff11", "has an invalid pool size"),
     ],
 )
 def test_malformed_entries_fail_at_startup(raw, message):
