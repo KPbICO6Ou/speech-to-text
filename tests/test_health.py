@@ -11,3 +11,19 @@ def test_health_ok(client):
     assert body["status"] == "ok"
     assert body["pool_size"] == 1
     assert body["available"] == 1
+    assert body["default_model"] == "small.en-stub"
+    assert body["models"] == {"small.en-stub": {"backend": "whisper", "pool_size": 1, "available": 1}}
+
+
+def test_health_reports_every_model_and_the_default_on_top(multi_client):
+    """With several models the top-level counters are the default model's, and each model has its own."""
+    body = multi_client.get("/api/health").get_json()
+    assert body["default_model"] == "small.en-stub"
+    assert body["pool_size"] == 1
+    assert body["available"] == 1
+    assert body["models"] == {
+        "small.en-stub": {"backend": "whisper", "pool_size": 1, "available": 1},
+        "tiny.en": {"backend": "whisper", "pool_size": 2, "available": 2},
+        "nvidia/parakeet-tdt-0.6b-v3": {"backend": "parakeet", "pool_size": 1, "available": 1},
+    }
+    assert "diarize_pool_size" not in body

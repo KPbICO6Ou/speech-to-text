@@ -3,6 +3,32 @@
 ### [Unreleased]
 
 #### Added
+- **Several pre-loaded transcription models, chosen per request.** `STT_MODELS` lists
+  them as `backend:model[@pool]` entries, for example
+  `whisper:turbo@2,whisper:small.en@1,parakeet:nvidia/parakeet-tdt-0.6b-v3@1`, each with
+  its own pool; `STT_DEFAULT_MODEL` names the one a request without `model` gets, else the
+  first entry serves. Every model still loads at startup and nothing is ever loaded
+  lazily. An entry without `@pool` takes `STT_POOL_SIZE`. With `STT_MODELS` empty the
+  server loads exactly what `STT_BACKEND` / `WHISPER_MODEL` / `PARAKEET_MODEL` chose
+  before. A malformed list, an unknown backend, the same weights listed twice (`turbo`
+  and `large-v3-turbo`) or a default that is not in the list stops the server at startup.
+  A file path is served under its basename without `.pt`, so the host's layout never
+  reaches a client.
+- **`model` on `POST /api/stt` and `POST /api/transcript`**, as a query parameter or a form
+  field: an id, an alias, `backend:model` or a bare backend name. A name nobody knows is
+  `400 Invalid model`; a real model this server did not load is `400 Model not loaded`.
+  Both are checked before the audio is decoded or an instance is borrowed.
+- **`/api/stt` says which model transcribed and in which language.** The response gains
+  `model` (the canonical id) and `language` (the code Whisper detected or used, always `en`
+  for an English-only checkpoint, `null` for Parakeet, which does not report it).
+  `/api/transcript` gains `model`.
+- **`GET /api/models` has one row per loaded model**, each with `id`, `selectable`,
+  `pool_size` and `available`, and the body gains `default_model`. A transcriber with
+  nothing loaded keeps its single row, with `selectable: false`. `default` is still the
+  default model's backend.
+- **`GET /api/health` reports every pool.** `default_model` and `models` (per id: backend,
+  pool size, available) join the top-level `pool_size` and `available`, which now describe
+  the default model and are unchanged for a single-model deployment.
 - **Live transcription in the web UI, and from a URL.** TRANSCRIBE gets a FILE / DEVICE
   switch: DEVICE captures a microphone, a headset, a loopback source or a browser tab's sound
   and shows each phrase as a block as soon as it is transcribed. Browsers allow audio devices
@@ -101,6 +127,11 @@
   with `Invalid value for config`. The default `python3 stt_server.py` run was not affected.
   Gunicorn 26's control socket is turned off in the same file: it defaults to a path under
   `$HOME`, which the unprivileged server user cannot write, and nothing here uses it.
+- **A known language outside the model's slice is a 400, not a 500.** `?language=yue` on a
+  99-language checkpoint passed the check and raised inside Whisper; it is now
+  `400 Unsupported language` before any audio is decoded.
+- **A busy model is still `loaded` in the catalogue.** With every instance in flight the
+  pool was empty and the row fell back to `installed`.
 - **The container stops cleanly.** `entrypoint.sh` ran the server under `/bin/sh -c` without
   `exec`, so the shell stayed PID 1, never forwarded SIGTERM, and every stop and redeploy
   waited out Docker's 10 s grace period and then SIGKILLed the server with requests in flight
@@ -138,6 +169,15 @@
   mounted dirs and drops privileges via `setpriv` before starting the server.
 
 #### Changed
+- **A request that names its model has its `language` checked against that model's own
+  list.** An English-only Whisper given `ru`, or Parakeet given a code outside its 25, is
+  `400 Unsupported language`. A request without `model` keeps the old leniency: an
+  English-only default still quietly transcribes English, and Parakeet still accepts and
+  ignores any value.
+- **The transcriber modules take the model to work on.** `get_model` and `describe_backend`
+  accept `model_name`, and both modules gained `get_stt_result`, `list_aliases`,
+  `list_known_models` and (Parakeet) `resolve_languages`; `get_stt_bio` is now a thin
+  wrapper. Parakeet's catalogue row lists its short name as an alias.
 - **A model backend that fails to load no longer stops the server.** The failure is
   logged and its pool left empty, so `/api/diarize` answers 503 while `/api/stt` keeps
   serving. Previously the exception surfaced inside the Gunicorn `post_fork` hook and
