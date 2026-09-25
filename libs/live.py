@@ -118,7 +118,12 @@ def check_start(scope: dict[str, Any], start: Any) -> tuple[str | None, dict[str
     if spec is None:
         return error or registry.INVALID_MODEL, {}
     language = (language or "").strip().lower() or None
-    language, error = backends.resolve_language(language, spec, explicit=requested_model is not None)
+    if requested_model is None:
+        # A client that sends nothing new is checked exactly as before: only whether the value is
+        # a language at all. A code the default model lacks fails later, when a phrase is transcribed.
+        language, error = backends.resolve_language_code(language, spec)
+    else:
+        language, error = backends.resolve_language(language, spec, explicit=True)
     if error:
         return error, {}
 

@@ -195,7 +195,7 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` は**リアルタイム文字起こし**のための WebSocket です。音声は録音されるそばから送られ、各フレーズは話者が言葉を切ってから約 1 秒後に返ってきます。JSON のテキストメッセージが制御を、バイナリメッセージが音声を運びます。
 
-1. クライアントは `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}` を送ります。`type` 以外のフィールドはすべて省略可能です。`model` は `/api/stt` の `model` と同じように読み込み済みのモデルを 1 つ選び、言語はそのモデルに対して検証されます。省略するとデフォルトのモデルが使われます。`token` はブラウザが認証するための手段です。ブラウザは WebSocket にヘッダーを設定できないためです。それ以外のクライアントは、代わりにハンドシェイク時に `Authorization: Bearer <token>` を送っても構いません。
+1. クライアントは `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}` を送ります。`type` 以外のフィールドはすべて省略可能です。`model` は `/api/stt` の `model` と同じように読み込み済みのモデルを 1 つ選び、言語はそのモデルに対して検証されます。省略するとデフォルトのモデルが使われ、言語はこれまでどおり言語であるかどうかだけが検査されます。そのため、デフォルトのモデルが知らないコードは、フレーズを文字起こしする時点で失敗します。`token` はブラウザが認証するための手段です。ブラウザは WebSocket にヘッダーを設定できないためです。それ以外のクライアントは、代わりにハンドシェイク時に `Authorization: Bearer <token>` を送っても構いません。
 2. サーバーは `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}` と応答します。
 3. クライアントは生の PCM（符号付き 16 ビット、リトルエンディアン、モノラル、16 kHz）を任意のサイズのバイナリメッセージとして送り、終わったら `{"type": "stop"}` を送ります。
 4. サーバーはフレーズごとに `segment` を、約 1 秒ごとに `progress` を送り、閉じる前に `done` を送ります。

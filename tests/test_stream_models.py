@@ -70,9 +70,18 @@ def test_the_token_is_checked_before_the_model(multi_client, monkeypatch):
     assert check({"model": "nope"}) == ("Unauthorized", {})
 
 
-def test_the_default_model_limits_the_language_of_an_old_client(client):
-    """Without `model` a known code outside the default model's list is refused before any audio."""
-    assert check({"language": "de"}) == ("Unsupported language", {})
+def test_an_old_client_is_checked_as_before(client):
+    """Without `model` only the shape of the language is checked, exactly as before model selection."""
+    error, options = check({"language": "de"})
+    assert error is None
+    assert options["language"] == "de"
+    assert check({"language": "german"})[1]["language"] == "de"
+    assert check({"language": "zz"}) == ("Invalid language", {})
+
+
+def test_a_named_model_limits_the_language(client):
+    """Naming the default model explicitly does check the code against its list."""
+    assert check({"model": "small.en-stub", "language": "de"}) == ("Unsupported language", {})
 
 
 def test_an_utterance_borrows_from_the_chosen_models_pool(multi_client, stt_module, monkeypatch):

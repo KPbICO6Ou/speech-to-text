@@ -195,7 +195,7 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream`은 **실시간 전사**를 위한 WebSocket입니다. 오디오는 녹음되는 대로 들어가고, 각 구절은 화자가 말을 멈춘 뒤 약 1초 후에 돌아옵니다. JSON 텍스트 메시지는 제어를, 바이너리 메시지는 오디오를 전달합니다.
 
-1. 클라이언트가 `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`을 보냅니다. `type`을 제외한 모든 필드는 선택 사항입니다. `model`은 `/api/stt`의 `model`과 같은 방식으로 로드된 모델 중 하나를 고르며, 언어는 그 모델을 기준으로 검사됩니다. 생략하면 기본 모델이 사용됩니다. `token`은 브라우저가 인증하는 방법인데, 브라우저는 WebSocket에 헤더를 설정할 수 없기 때문입니다. 다른 클라이언트는 대신 핸드셰이크 때 `Authorization: Bearer <token>`을 보내도 됩니다.
+1. 클라이언트가 `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`을 보냅니다. `type`을 제외한 모든 필드는 선택 사항입니다. `model`은 `/api/stt`의 `model`과 같은 방식으로 로드된 모델 중 하나를 고르며, 언어는 그 모델을 기준으로 검사됩니다. 생략하면 기본 모델이 사용되고, 언어는 예전처럼 언어인지 여부만 검사합니다. 그래서 기본 모델이 모르는 코드는 구절을 전사할 때 실패합니다. `token`은 브라우저가 인증하는 방법인데, 브라우저는 WebSocket에 헤더를 설정할 수 없기 때문입니다. 다른 클라이언트는 대신 핸드셰이크 때 `Authorization: Bearer <token>`을 보내도 됩니다.
 2. 서버가 `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}`로 응답합니다.
 3. 클라이언트는 원시 PCM(부호 있는 16비트, 리틀 엔디언, 모노, 16 kHz)을 임의 크기의 바이너리 메시지로 보내고, 끝나면 `{"type": "stop"}`을 보냅니다.
 4. 서버는 구절마다 `segment`를, 약 1초마다 `progress`를 보내고, 닫기 전에 `done`을 보냅니다.

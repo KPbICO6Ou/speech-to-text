@@ -157,8 +157,9 @@
   the non-detailed body.
 - **A known language outside the model's slice is a 400, not a 500.** `?language=yue` on a
   99-language checkpoint passed the check and raised inside Whisper; it is now
-  `400 Unsupported language` before any audio is decoded, and on `/api/stream` an
-  `Unsupported language` error before the session starts. Only a checkpoint whose list is
+  `400 Unsupported language` before any audio is decoded, and on `/api/stream` whose start
+  message names the model an `Unsupported language` error before the session starts; a start
+  message without `model` is checked exactly as before. Only a checkpoint whose list is
   certain refuses it: a file path whose name matches no known checkpoint (a fine-tune at
   `/models/my-large-v3-finetune.pt`) still has any known code passed on when the request
   names no model, because its list is only guessed from the name.
