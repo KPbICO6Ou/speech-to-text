@@ -30,15 +30,18 @@ def is_valid_token(token: str) -> bool:
     return bool(token) and any(hmac.compare_digest(token, valid) for valid in config.STT_TOKENS)
 
 
+def is_request_authorized() -> bool:
+    """Whether the current request would pass token_required: auth is off, or it carries a valid token."""
+    return not config.STT_TOKENS or is_valid_token(read_bearer_token())
+
+
 def token_required(view):
     """Reject requests without a valid Bearer token; a pass-through while STT_TOKENS is empty."""
 
     @wraps(view)
     def wrapper(*args, **kwargs):
         """Check the Authorization header, then delegate to the wrapped view."""
-        if not config.STT_TOKENS:
-            return view(*args, **kwargs)
-        if not is_valid_token(read_bearer_token()):
+        if not is_request_authorized():
             logger.warning("[%s] Unauthorized", get_request_id())
             return build_error_response("Unauthorized", 401)
         return view(*args, **kwargs)

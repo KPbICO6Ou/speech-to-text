@@ -16,7 +16,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Local imports
 from libs import align, audio, backends, catalog, config, diarize, live, logs, model_pool, registry
-from libs.auth import token_required
+from libs.auth import is_request_authorized, token_required
 from libs.errors import build_error_response, get_request_id, register_error_handlers
 
 logs.setup_logging()
@@ -141,10 +141,12 @@ def convert_upload(bio):
 def health():
     """Report service liveness and model pool occupancy.
 
-    The top-level `pool_size` and `available` describe the default model (available=0 means
-    every instance of it is busy); `models` reports every loaded model's pool by id.
+    Open, so healthchecks need no token. The top-level `pool_size` and `available` describe the
+    default model (available=0 means every instance of it is busy). `default_model` and `models`
+    (every loaded model's pool by id) name the deployment's configuration, so like /api/models
+    they are only included for a caller that passes the token check, or when auth is off.
     """
-    return jsonify({"status": "ok", **model_pool.get_pool_status()}), 200
+    return jsonify({"status": "ok", **model_pool.get_pool_status(detailed=is_request_authorized())}), 200
 
 
 @app.route("/api/models", methods=["GET"])

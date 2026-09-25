@@ -145,24 +145,26 @@ def release_diarizer(diarizer: Any) -> None:
     DIARIZER_POOL.put(diarizer)
 
 
-def get_pool_status() -> dict[str, Any]:
-    """Report the default model's pool at the top level, every model under `models`, and the diarizer.
+def get_pool_status(detailed: bool = True) -> dict[str, Any]:
+    """Report the default model's pool at the top level, the diarizer, and with `detailed` every model.
 
     The top-level `pool_size` and `available` describe the default model, because that is the
     pool a request without `model` waits on; with STT_MODELS empty they are what they always were.
+    `default_model` and `models` name what this server loaded, which is configuration: the open
+    /api/health only adds them for a caller that /api/models would also serve.
     """
-    default_id = registry.get_default_model_id()
-    models = {
-        spec["id"]: {"backend": spec["backend"], "pool_size": spec["pool_size"], "available": count_available(spec["id"])}
-        for spec in registry.get_model_specs()
-    }
+    default_spec = registry.get_default_spec()
     status: dict[str, Any] = {
-        "pool_size": models[default_id]["pool_size"],
-        "available": models[default_id]["available"],
+        "pool_size": default_spec["pool_size"],
+        "available": count_available(default_spec["id"]),
         "diarize": config.DIARIZE_ENABLED,
-        "default_model": default_id,
-        "models": models,
     }
+    if detailed:
+        status["default_model"] = default_spec["id"]
+        status["models"] = {
+            spec["id"]: {"backend": spec["backend"], "pool_size": spec["pool_size"], "available": count_available(spec["id"])}
+            for spec in registry.get_model_specs()
+        }
     if config.DIARIZE_ENABLED:
         status["diarize_pool_size"] = config.DIARIZE_POOL_SIZE
         status["diarize_available"] = DIARIZER_POOL.qsize()
