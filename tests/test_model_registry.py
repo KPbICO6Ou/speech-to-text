@@ -157,6 +157,38 @@ def test_two_paths_with_one_basename_are_refused(client, monkeypatch):
         registry.validate_model_specs()
 
 
+def test_stt_default_model_may_name_a_path_entry_as_written(client, monkeypatch):
+    """The path exactly as STT_MODELS spells it is accepted as the default, next to its basename."""
+    use_models(monkeypatch, "whisper:/opt/models/Custom.pt@1,whisper:tiny.en@1", "/opt/models/Custom.pt")
+    registry.validate_model_specs()
+    assert registry.get_default_model_id() == "Custom"
+    monkeypatch.setattr(config, "STT_DEFAULT_MODEL", "custom")
+    assert registry.get_default_model_id() == "Custom"
+
+
+def test_a_request_cannot_name_a_path(client, monkeypatch):
+    """Only STT_DEFAULT_MODEL matches the path; a client's `model` never does."""
+    use_models(monkeypatch, "whisper:/opt/models/Custom.pt@1")
+    assert registry.resolve_request_model("/opt/models/Custom.pt") == (None, "Invalid model")
+
+
+def test_a_path_entry_is_checked_against_its_names_languages(client, monkeypatch):
+    """`/opt/tiny.en.pt` is tiny.en, English-only, so an explicit Russian request is refused."""
+    use_models(monkeypatch, "whisper:/opt/tiny.en.pt@1")
+    spec, unused_error = registry.resolve_request_model("tiny.en")
+    assert spec["model"] == "/opt/tiny.en.pt"
+    assert registry.resolve_language("ru", spec, explicit=True) == (None, "Unsupported language")
+    assert registry.resolve_language("en", spec, explicit=True) == ("en", None)
+
+
+def test_a_legacy_path_model_keeps_its_full_language_list(client, monkeypatch):
+    """WHISPER_MODEL=/models/turbo.pt knows what turbo knows, so a code outside the default slice still passes."""
+    monkeypatch.setattr(config, "WHISPER_MODEL", "/models/turbo.pt")
+    spec = registry.get_default_spec()
+    assert spec["id"] == "turbo"
+    assert registry.resolve_language("de", spec, explicit=False) == ("de", None)
+
+
 def test_init_fills_one_pool_per_model(client, monkeypatch):
     """Startup loads every entry into its own queue, each instance built for its own model."""
     use_models(monkeypatch, "whisper:tiny.en@2,parakeet:nvidia/parakeet-tdt-0.6b-v3@1")

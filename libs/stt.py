@@ -98,10 +98,14 @@ def read_waveform(bio: io.BytesIO) -> np.ndarray:
 
 
 def resolve_languages(model_name: str) -> list[str]:
-    """The language codes a Whisper checkpoint accepts, without loading it."""
-    if model_name.endswith(".en"):
+    """The language codes a Whisper checkpoint accepts, without loading it.
+
+    A file path is judged by its name: `/models/large-v3.pt` knows 100 codes, `/models/tiny.en.pt` one.
+    """
+    name = config.build_model_name(model_name)
+    if name.endswith(".en"):
         return ["en"]
-    return list(LANGUAGES)[: 100 if model_name in LANGUAGES_100 else 99]
+    return list(LANGUAGES)[: 100 if name in LANGUAGES_100 else 99]
 
 
 def normalize_language_code(language: str) -> str | None:
@@ -152,7 +156,7 @@ def describe_backend(model_name: str | None = None) -> dict:
         "model": model_name,
         "aliases": list_aliases(model_name),
         "status": "installed" if is_installed(model_name) else "absent",
-        "multilingual": not model_name.endswith(".en"),
+        "multilingual": not config.build_model_name(model_name).endswith(".en"),
         "accepts_language": True,
         "languages_source": "derived",
         "languages": resolve_languages(model_name),

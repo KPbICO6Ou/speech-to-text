@@ -195,3 +195,25 @@ def test_a_parakeet_default_still_ignores_any_value(client, monkeypatch):
     resp = post_language(client, "language=zz")
     assert resp.status_code == 200
     assert resp.get_json()["model"] == "nvidia/parakeet-tdt-0.6b-v3"
+
+
+def test_a_legacy_path_model_accepts_what_its_checkpoint_knows(client, stt_module, monkeypatch):
+    """WHISPER_MODEL=/models/turbo.pt is judged as turbo: `de` passes, as it did before model selection."""
+    monkeypatch.setattr(config, "WHISPER_MODEL", "/models/turbo.pt")
+    monkeypatch.setattr(model_pool, "MODEL_POOLS", {})
+    model_pool.get_model_pool("turbo").put(make_model_sentinel("turbo"))
+    seen = capture_language(stt_module, monkeypatch)
+    resp = client.post("/api/stt?language=de", data=make_wav(), content_type="audio/wav")
+    assert resp.status_code == 200
+    assert seen["language"] == "de"
+    assert resp.get_json()["model"] == "turbo"
+
+
+def test_an_explicit_english_only_path_model_refuses_another_language(client, monkeypatch):
+    """`whisper:/opt/tiny.en.pt` is served as tiny.en and knows English only, like the named checkpoint."""
+    monkeypatch.setattr(config, "STT_MODELS", config.parse_model_list("whisper:/opt/tiny.en.pt@1"))
+    monkeypatch.setattr(model_pool, "MODEL_POOLS", {})
+    model_pool.get_model_pool("tiny.en").put(make_model_sentinel("tiny.en"))
+    resp = post_language(client, "model=tiny.en&language=ru")
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "Unsupported language"

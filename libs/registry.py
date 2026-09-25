@@ -3,7 +3,6 @@
 """Which transcription models this server loads, and what a request may select among them."""
 
 import logging
-import os
 from typing import Any
 
 # Local imports
@@ -27,12 +26,7 @@ def build_model_id(model: str) -> str:
     A path is where the weights live on this host, which is not the client's business: the id
     reaches the open /api/health, the catalogue and every /api/stt response.
     """
-    if not config.is_model_path(model):
-        return model
-    basename = os.path.basename(model.rstrip("/"))
-    if basename.endswith(config.MODEL_PATH_SUFFIX):
-        basename = basename[: -len(config.MODEL_PATH_SUFFIX)]
-    return basename or model
+    return config.build_model_name(model)
 
 
 def get_legacy_backend() -> str:
@@ -69,11 +63,25 @@ def get_model_specs() -> list[dict[str, Any]]:
     return [build_model_spec(entry) for entry in config.STT_MODELS]
 
 
+def find_default_spec(specs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The spec STT_DEFAULT_MODEL names, or None.
+
+    Besides every name a request may use, it accepts a file-path entry exactly as STT_MODELS
+    spells it: the path is operator-side configuration, so matching it reveals nothing, while a
+    request's `model` never matches a path.
+    """
+    wanted = config.STT_DEFAULT_MODEL.strip()
+    for spec in specs:
+        if config.is_model_path(spec["model"]) and spec["model"] == wanted:
+            return spec
+    return find_spec(wanted, specs)
+
+
 def get_default_spec() -> dict[str, Any]:
     """The spec a request without `model` uses: STT_DEFAULT_MODEL when set, else the first spec."""
     specs = get_model_specs()
     if config.STT_MODELS and config.STT_DEFAULT_MODEL:
-        spec = find_spec(config.STT_DEFAULT_MODEL, specs)
+        spec = find_default_spec(specs)
         if spec is not None:
             return spec
     return specs[0]
@@ -159,7 +167,7 @@ def resolve_self_detected_language(language: str, spec: dict[str, Any], explicit
     """
     if not explicit:
         return language, None
-    languages = backends.transcriber_for_backend(spec["backend"]).resolve_languages(spec["model"])
+    languages = backends.transcriber_for_backend(spec["backend"]).resolve_languages(spec["id"])
     if languages is None or language in languages:
         return language, None
     return None, UNSUPPORTED_LANGUAGE
@@ -182,7 +190,8 @@ def resolve_language(language: str | None, spec: dict[str, Any], explicit: bool)
     code = module.normalize_language_code(language)
     if code is None:
         return None, INVALID_LANGUAGE
-    languages = module.resolve_languages(spec["model"])
+    # By the id, never the load path: `/models/tiny.en.pt` is tiny.en and knows English only.
+    languages = module.resolve_languages(spec["id"])
     if code in languages:
         return code, None
     if not explicit and len(languages) == 1:
@@ -229,7 +238,7 @@ def validate_model_specs() -> None:
             raise ValueError(f"STT_MODELS names unknown backend '{entry['backend']}'")
     specs = get_model_specs()
     check_duplicate_specs(specs)
-    if config.STT_DEFAULT_MODEL and find_spec(config.STT_DEFAULT_MODEL, specs) is None:
+    if config.STT_DEFAULT_MODEL and find_default_spec(specs) is None:
         raise ValueError(f"STT_DEFAULT_MODEL '{config.STT_DEFAULT_MODEL}' is not in STT_MODELS")
     warn_about_implicit_pools()
 

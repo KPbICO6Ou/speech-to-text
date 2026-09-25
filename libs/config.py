@@ -21,6 +21,20 @@ def is_model_path(model: str) -> bool:
     return model.startswith(MODEL_PATH_PREFIXES) or model.endswith(MODEL_PATH_SUFFIX)
 
 
+def build_model_name(model: str) -> str:
+    """The name a model value stands for: the value itself, or for a file path its basename without `.pt`.
+
+    `/opt/models/large-v3.pt` is the large-v3 checkpoint, so everything derived from a name
+    (the public id, a Whisper language list) must see `large-v3`, never the path.
+    """
+    if not is_model_path(model):
+        return model
+    basename = os.path.basename(model.rstrip("/"))
+    if basename.endswith(MODEL_PATH_SUFFIX):
+        basename = basename[: -len(MODEL_PATH_SUFFIX)]
+    return basename or model
+
+
 def parse_pool_size(text: str, entry: str) -> int:
     """Parse the @pool suffix of one STT_MODELS entry; a positive integer or ValueError."""
     try:

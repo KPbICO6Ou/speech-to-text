@@ -69,7 +69,11 @@ def fake_get_stt_segments(bio, model=None, device=None, language=None):
 
 
 def fake_resolve_whisper_languages(model_name):
-    """Stand in for stt.resolve_languages(): the table, else what the name implies."""
+    """Stand in for stt.resolve_languages(): the table, else what the name implies.
+
+    Unlike the real module it does not reduce a file path to its name, on purpose: a caller
+    that handed it the load path instead of the id would then get the wrong list, and fail.
+    """
     entry = FAKE_WHISPER_MODELS.get(model_name)
     if entry is not None:
         return list(entry["languages"])

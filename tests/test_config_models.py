@@ -58,3 +58,18 @@ def test_malformed_entries_fail_at_startup(raw, message):
 def test_a_path_may_contain_an_at_sign_when_the_pool_is_explicit():
     """The pool starts at the LAST `@`, so a path keeps the ones before it, and its case."""
     assert config.parse_model_list("whisper:/opt/M@x.pt@1") == ({"backend": "whisper", "model": "/opt/M@x.pt", "pool_size": 1},)
+
+
+@pytest.mark.parametrize(
+    ("model", "name"),
+    [
+        ("turbo", "turbo"),
+        ("nvidia/parakeet-tdt-0.6b-v3", "nvidia/parakeet-tdt-0.6b-v3"),
+        ("/models/large-v3.pt", "large-v3"),
+        ("/opt/small.en.pt", "small.en"),
+        ("./weights/Custom", "Custom"),
+    ],
+)
+def test_a_path_stands_for_its_file_name_without_pt(model, name):
+    """Everything derived from a model's name (its id, a Whisper language list) sees the name, not the path."""
+    assert config.build_model_name(model) == name
