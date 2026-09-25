@@ -209,7 +209,9 @@
   no longer takes a `size` argument: each model's size comes from its `STT_MODELS` entry
   or `STT_POOL_SIZE`. `catalog.describe_transcriber` is replaced by
   `describe_configured_model` (one loaded model) and `describe_unconfigured_backend` (a
-  transcriber with nothing loaded). Code importing `libs` directly needs these new names.
+  transcriber with nothing loaded), and `backends.transcriber()` is gone: every caller
+  resolves `backends.transcriber_for_backend(spec["backend"])` for the model it serves.
+  Code importing `libs` directly needs these new names.
 - **A request that names its model has its `language` checked against that model's own
   list.** An English-only Whisper given `ru`, or Parakeet given a code outside its 25, is
   `400 Unsupported language`. A request without `model` keeps the old leniency: an

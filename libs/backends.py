@@ -37,11 +37,6 @@ def transcriber_name() -> str:
     return DEFAULT_TRANSCRIBER
 
 
-def transcriber() -> ModuleType:
-    """The module that transcribes for a single-model deployment (STT_MODELS empty)."""
-    return TRANSCRIBERS[transcriber_name()]
-
-
 def transcriber_for_backend(name: str) -> ModuleType:
     """The module of one named backend; raises KeyError for a name that is not a backend."""
     return TRANSCRIBERS[name]
