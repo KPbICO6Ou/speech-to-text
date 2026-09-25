@@ -36,17 +36,18 @@ DIARIZER_POOL: queue.Queue = queue.Queue()
 DIARIZERS_LOADED = 0
 
 
-def init_model_pool(size: int | None = None) -> None:
+def init_model_pool() -> None:
     """Validate the model list, then pre-load every model's instances into its own queue.
 
-    Called once per process at startup. `size`, when given, overrides every model's pool size
-    (kept for the old signature). A model that fails to load raises: a transcription service
-    that cannot load a configured model must not report itself healthy. Sizes are read at call
-    time, so a test or a caller that changes `config.MODEL_POOL_SIZE` is actually obeyed.
+    Called once per process at startup. Each model loads exactly its spec's pool_size, the
+    number health, the catalogue and the startup log report. A model that fails to load raises:
+    a transcription service that cannot load a configured model must not report itself healthy.
+    Sizes are read at call time, so a test or a caller that changes `config.MODEL_POOL_SIZE` is
+    actually obeyed.
     """
     registry.validate_model_specs()
     for spec in registry.get_model_specs():
-        count = spec["pool_size"] if size is None else size
+        count = spec["pool_size"]
         transcriber = backends.transcriber_for_backend(spec["backend"])
         pool = get_model_pool(spec["id"])
         logger.info("Initializing %d %s model instances of %s...", count, spec["backend"], spec["id"])
