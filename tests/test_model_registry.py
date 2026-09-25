@@ -178,3 +178,14 @@ def test_init_refuses_an_invalid_list_before_loading_anything(client, monkeypatc
     with pytest.raises(ValueError):
         model_pool.init_model_pool()
     assert model_pool.MODEL_POOLS == {}
+
+
+def test_an_unknown_stt_backend_warns_at_startup_only(client, monkeypatch, caplog):
+    """The fallback is announced once by validation, not on every healthcheck that resolves the spec."""
+    monkeypatch.setattr(config, "STT_BACKEND", "parrakeet")
+    with caplog.at_level(logging.WARNING):
+        assert client.get("/api/health").get_json()["default_model"] == "small.en-stub"
+    assert "not a known backend" not in caplog.text
+    with caplog.at_level(logging.WARNING):
+        registry.validate_model_specs()
+    assert "not a known backend" in caplog.text

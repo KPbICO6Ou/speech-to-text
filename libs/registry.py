@@ -35,12 +35,23 @@ def build_model_id(model: str) -> str:
     return basename or model
 
 
+def get_legacy_backend() -> str:
+    """STT_BACKEND when it names a backend, else the default one.
+
+    Silent on purpose: this runs on every request and every healthcheck, so the warning about
+    an unknown STT_BACKEND is logged once, by validate_model_specs at startup.
+    """
+    if config.STT_BACKEND in backends.TRANSCRIBERS:
+        return config.STT_BACKEND
+    return backends.DEFAULT_TRANSCRIBER
+
+
 def build_legacy_spec() -> dict[str, Any]:
     """The single spec implied by STT_BACKEND / WHISPER_MODEL / PARAKEET_MODEL / STT_POOL_SIZE.
 
     Computed on every call, so a changed STT_BACKEND is obeyed rather than cached.
     """
-    backend = backends.transcriber_name()
+    backend = get_legacy_backend()
     model = config.PARAKEET_MODEL if backend == "parakeet" else config.WHISPER_MODEL
     return {"id": build_model_id(model), "backend": backend, "model": model, "pool_size": config.MODEL_POOL_SIZE}
 
@@ -207,6 +218,8 @@ def warn_about_implicit_pools() -> None:
 def validate_model_specs() -> None:
     """Refuse at startup a model list the server cannot serve unambiguously; raises ValueError."""
     if not config.STT_MODELS:
+        # Logs the fallback when STT_BACKEND names nothing real, once per process.
+        backends.transcriber_name()
         if config.STT_DEFAULT_MODEL:
             logger.warning("STT_DEFAULT_MODEL=%s is ignored without STT_MODELS", config.STT_DEFAULT_MODEL)
         return
