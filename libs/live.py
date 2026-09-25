@@ -28,7 +28,7 @@ from urllib.parse import urlsplit
 import numpy as np
 
 # Local imports
-from libs import auth, backends, config, diarize, model_pool, stream
+from libs import auth, backends, config, diarize, model_pool, registry, stream
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,7 @@ CLOSE_CODES = {
     "Unauthorized": CLOSE_POLICY,
     "Invalid start message": CLOSE_UNSUPPORTED,
     "Invalid language": CLOSE_UNSUPPORTED,
+    "Unsupported language": CLOSE_UNSUPPORTED,
     "Invalid audio frame": CLOSE_UNSUPPORTED,
     "Invalid stream URL": CLOSE_UNSUPPORTED,
     "Diarization disabled": CLOSE_TRY_LATER,
@@ -103,10 +104,9 @@ def check_start(scope: dict[str, Any], start: Any) -> tuple[str | None, dict[str
     if language is not None and not isinstance(language, str):
         return "Invalid start message", {}
     language = (language or "").strip().lower() or None
-    if language is not None:
-        language = backends.resolve_language(language)
-        if language is None:
-            return "Invalid language", {}
+    language, error = backends.resolve_language(language, registry.get_default_spec(), explicit=False)
+    if error:
+        return error, {}
 
     source = start.get("source") or "client"
     url = start.get("url")

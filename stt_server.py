@@ -113,7 +113,7 @@ def resolve_request_options() -> tuple[dict[str, Any] | None, str | None, str | 
     spec, error = registry.resolve_request_model(requested_model)
     if spec is None:
         return None, None, error
-    language, error = registry.resolve_language(read_language_argument(), spec, explicit=requested_model is not None)
+    language, error = backends.resolve_language(read_language_argument(), spec, explicit=requested_model is not None)
     if error is not None:
         return None, None, error
     return spec, language, None

@@ -10,14 +10,10 @@ from libs import backends, config
 
 logger = logging.getLogger(__name__)
 
-# The value that asks the backend to detect the language rather than be told it.
-AUTODETECT = "auto"
-
-# Error categories a request's `model` or `language` can earn; each one is a 400.
+# Error categories a request's `model` can earn; each one is a 400. The language ones live in
+# libs/backends.py beside resolve_language.
 INVALID_MODEL = "Invalid model"
 MODEL_NOT_LOADED = "Model not loaded"
-INVALID_LANGUAGE = "Invalid language"
-UNSUPPORTED_LANGUAGE = "Unsupported language"
 
 
 def build_model_id(model: str) -> str:
@@ -162,50 +158,6 @@ def resolve_request_model(requested: str | None) -> tuple[dict[str, Any] | None,
     if spec is not None:
         return spec, None
     return None, MODEL_NOT_LOADED if is_known_model(wanted) else INVALID_MODEL
-
-
-def resolve_self_detected_language(language: str, spec: dict[str, Any], explicit: bool) -> tuple[str | None, str | None]:
-    """Check a hint for a backend that detects the language itself and takes no language argument.
-
-    A caller that did not choose a model gets today's behaviour: the value is accepted and
-    ignored, whatever it is. One that did choose read the catalogue, so a code outside that
-    model's list is refused; an id the table does not cover accepts anything.
-    """
-    if not explicit:
-        return language, None
-    languages = backends.transcriber_for_backend(spec["backend"]).resolve_languages(spec["id"])
-    if languages is None or language in languages:
-        return language, None
-    return None, UNSUPPORTED_LANGUAGE
-
-
-def resolve_language(language: str | None, spec: dict[str, Any], explicit: bool) -> tuple[str | None, str | None]:
-    """Validate a requested language against the chosen model; returns (value to pass on, error category).
-
-    `explicit` is whether the request named its model. A shape check cannot do this job in
-    either direction: `zz` looks like a code and is not one, and `russian` is not a code but is
-    a spelling Whisper accepts.
-    """
-    if language is None:
-        return None, None
-    if language == AUTODETECT:
-        return AUTODETECT, None
-    module = backends.transcriber_for_backend(spec["backend"])
-    if not hasattr(module, "normalize_language_code"):
-        return resolve_self_detected_language(language, spec, explicit)
-    code = module.normalize_language_code(language)
-    if code is None:
-        return None, INVALID_LANGUAGE
-    # By the id, never the load path: `/models/tiny.en.pt` is tiny.en and knows English only.
-    languages = module.resolve_languages(spec["id"])
-    if code in languages:
-        return code, None
-    if not explicit and len(languages) == 1:
-        # An English-only checkpoint has always been handed any known code and quietly decoded
-        # English; a client that never chose a model keeps that, and the response says `en`.
-        logger.warning("Model %s knows only %s; transcribing a %s request anyway", spec["id"], languages[0], code)
-        return code, None
-    return None, UNSUPPORTED_LANGUAGE
 
 
 def check_backend_name_clash(spec: dict[str, Any]) -> None:

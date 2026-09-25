@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from libs import config, model_pool, registry
+from libs import backends, config, model_pool, registry
 
 
 def use_models(monkeypatch, raw, default=""):
@@ -151,7 +151,7 @@ def test_a_backend_with_nothing_loaded_is_not_loaded(client):
 def test_an_unknown_parakeet_id_accepts_any_hint(client):
     """With no language table for the id, an explicit request's hint is not second-guessed."""
     spec = {"id": "nvidia/other", "backend": "parakeet", "model": "nvidia/other", "pool_size": 1}
-    unused_value, error = registry.resolve_language("ja", spec, explicit=True)
+    unused_value, error = backends.resolve_language("ja", spec, explicit=True)
     assert error is None
 
 
@@ -200,8 +200,8 @@ def test_a_path_entry_is_checked_against_its_names_languages(client, monkeypatch
     use_models(monkeypatch, "whisper:/opt/tiny.en.pt@1")
     spec, unused_error = registry.resolve_request_model("tiny.en")
     assert spec["model"] == "/opt/tiny.en.pt"
-    assert registry.resolve_language("ru", spec, explicit=True) == (None, "Unsupported language")
-    assert registry.resolve_language("en", spec, explicit=True) == ("en", None)
+    assert backends.resolve_language("ru", spec, explicit=True) == (None, "Unsupported language")
+    assert backends.resolve_language("en", spec, explicit=True) == ("en", None)
 
 
 def test_a_legacy_path_model_keeps_its_full_language_list(client, monkeypatch):
@@ -209,7 +209,7 @@ def test_a_legacy_path_model_keeps_its_full_language_list(client, monkeypatch):
     monkeypatch.setattr(config, "WHISPER_MODEL", "/models/turbo.pt")
     spec = registry.get_default_spec()
     assert spec["id"] == "turbo"
-    assert registry.resolve_language("de", spec, explicit=False) == ("de", None)
+    assert backends.resolve_language("de", spec, explicit=False) == ("de", None)
 
 
 def test_init_fills_one_pool_per_model(client, monkeypatch):
