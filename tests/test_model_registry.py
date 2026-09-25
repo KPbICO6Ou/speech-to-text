@@ -79,6 +79,14 @@ def test_validation_refuses_what_cannot_be_served(client, monkeypatch, raw, defa
         registry.validate_model_specs()
 
 
+def test_an_implicit_pool_of_zero_is_refused(client, monkeypatch):
+    """STT_POOL_SIZE=0 would give an entry without @pool no instance, which an explicit @0 cannot."""
+    use_models(monkeypatch, "whisper:tiny.en")
+    monkeypatch.setattr(config, "MODEL_POOL_SIZE", 0)
+    with pytest.raises(ValueError, match=re.escape("'tiny.en' gets STT_POOL_SIZE=0; give it an explicit @N")):
+        registry.validate_model_specs()
+
+
 def test_two_entries_of_one_backend_are_not_a_clash(multi_client):
     """The bare backend name is shared by design, so two Whisper models validate fine."""
     registry.validate_model_specs()
@@ -176,6 +184,15 @@ def test_a_request_cannot_name_a_path(client, monkeypatch):
     """Only STT_DEFAULT_MODEL matches the path; a client's `model` never does."""
     use_models(monkeypatch, "whisper:/opt/models/Custom.pt@1")
     assert registry.resolve_request_model("/opt/models/Custom.pt") == (None, "Invalid model")
+
+
+@pytest.mark.parametrize("raw", ["", "whisper:tiny.en@1"])
+def test_the_configured_path_answers_like_any_other_path(client, monkeypatch, raw):
+    """A request naming WHISPER_MODEL's path learns nothing a different path would not tell it."""
+    use_models(monkeypatch, raw)
+    monkeypatch.setattr(config, "WHISPER_MODEL", "/models/large-v3.pt")
+    assert registry.resolve_request_model("/models/large-v3.pt") == (None, "Invalid model")
+    assert registry.resolve_request_model("/models/other.pt") == (None, "Invalid model")
 
 
 def test_a_path_entry_is_checked_against_its_names_languages(client, monkeypatch):

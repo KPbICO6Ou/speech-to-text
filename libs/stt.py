@@ -101,8 +101,9 @@ def resolve_languages(model_name: str) -> list[str]:
     """The language codes a Whisper checkpoint accepts, without loading it.
 
     A file path is judged by its name: `/models/large-v3.pt` knows 100 codes, `/models/tiny.en.pt` one.
+    The name is lower-cased because a path keeps its case: `/models/Tiny.EN.pt` is tiny.en too.
     """
-    name = config.build_model_name(model_name)
+    name = config.build_model_name(model_name).lower()
     if name.endswith(".en"):
         return ["en"]
     return list(LANGUAGES)[: 100 if name in LANGUAGES_100 else 99]
@@ -156,7 +157,7 @@ def describe_backend(model_name: str | None = None) -> dict:
         "model": model_name,
         "aliases": list_aliases(model_name),
         "status": "installed" if is_installed(model_name) else "absent",
-        "multilingual": not config.build_model_name(model_name).endswith(".en"),
+        "multilingual": not config.build_model_name(model_name).lower().endswith(".en"),
         "accepts_language": True,
         "languages_source": "derived",
         "languages": resolve_languages(model_name),

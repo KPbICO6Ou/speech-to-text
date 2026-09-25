@@ -16,7 +16,9 @@
   reaches a client, and its languages are those of the checkpoint that name names
   (`/models/large-v3.pt` knows what `large-v3` knows). `STT_DEFAULT_MODEL` accepts a path
   entry by that name or as written in `STT_MODELS`. Two entries one name would select, or
-  an entry served under a backend name, stop startup; a pool size must be plain digits.
+  an entry served under a backend name, stop startup; a pool size must be plain digits, and
+  an entry without `@pool` stops startup when `STT_POOL_SIZE` is below 1. A path entry's
+  name is judged case-insensitively, so `/models/Tiny.EN.pt` is English-only like `tiny.en`.
 - **`model` on `POST /api/stt` and `POST /api/transcript`**, as a query parameter or a form
   field: an id, an alias, `backend:model` or a bare backend name. A name nobody knows is
   `400 Invalid model`; a real model this server did not load is `400 Model not loaded`.

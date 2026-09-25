@@ -124,11 +124,17 @@ def find_spec(name: str, specs: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def list_known_names() -> set[str]:
-    """Every lower-cased name any backend could describe, loaded or not, in every accepted form."""
+    """Every lower-cased name any backend could describe, loaded or not, in every accepted form.
+
+    A configured WHISPER_MODEL / PARAKEET_MODEL counts by its name, never its path: otherwise
+    `model=<that path>` would earn `Model not loaded` where any other path earns
+    `Invalid model`, which confirms the host path the public id is meant to hide.
+    """
     names: set[str] = set()
     for backend, module in backends.TRANSCRIBERS.items():
         models = set(module.list_known_models())
-        models.add(config.PARAKEET_MODEL if backend == "parakeet" else config.WHISPER_MODEL)
+        configured = config.PARAKEET_MODEL if backend == "parakeet" else config.WHISPER_MODEL
+        models.add(config.build_model_name(configured))
         for model in models:
             for name in [model, *module.list_aliases(model)]:
                 names.update((name.lower(), f"{backend}:{name}".lower()))
@@ -231,6 +237,19 @@ def check_duplicate_specs(specs: list[dict[str, Any]]) -> None:
             owners[name] = spec
 
 
+def check_pool_sizes(specs: list[dict[str, Any]]) -> None:
+    """Refuse a spec that would load no instance, which an entry without @pool gets from STT_POOL_SIZE=0.
+
+    An explicit `@0` is already refused by the parser; an implicit one would load nothing,
+    report healthy, and leave every request for that model waiting out the acquire timeout.
+    """
+    for spec in specs:
+        if spec["pool_size"] < 1:
+            raise ValueError(
+                f"STT_MODELS entry '{spec['model']}' gets STT_POOL_SIZE={spec['pool_size']}; give it an explicit @N"
+            )
+
+
 def warn_about_implicit_pools() -> None:
     """Point out entries that silently take STT_POOL_SIZE, which is 8 outside the Docker files."""
     implicit = [entry["model"] for entry in config.STT_MODELS if entry["pool_size"] is None]
@@ -255,6 +274,7 @@ def validate_model_specs() -> None:
         if entry["backend"] not in backends.TRANSCRIBERS:
             raise ValueError(f"STT_MODELS names unknown backend '{entry['backend']}'")
     specs = get_model_specs()
+    check_pool_sizes(specs)
     check_duplicate_specs(specs)
     if config.STT_DEFAULT_MODEL and find_default_spec(specs) is None:
         raise ValueError(f"STT_DEFAULT_MODEL '{config.STT_DEFAULT_MODEL}' is not in STT_MODELS")
