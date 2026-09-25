@@ -164,10 +164,20 @@ def multi_diarize_client(multi_client, monkeypatch):
     return multi_client
 
 
-def test_transcript_uses_the_chosen_model(multi_diarize_client):
-    """/api/transcript honours `model`, names it in the response, and returns both instances."""
+def test_transcript_uses_the_chosen_model(multi_diarize_client, stt_module, monkeypatch):
+    """/api/transcript hands the backend a tiny.en instance, names it in the response, and returns both instances."""
+    seen: list = []
+    original = stt_module.get_stt_segments
+
+    def record_segments(bio, model=None, device=None, language=None):
+        """Stand in for get_stt_segments(), remembering the instance before answering like the stub."""
+        seen.append(model)
+        return original(bio, model=model, device=device, language=language)
+
+    monkeypatch.setattr(stt_module, "get_stt_segments", record_segments)
     resp = multi_diarize_client.post("/api/transcript?model=tiny.en", data=make_wav(), content_type="audio/wav")
     assert resp.status_code == 200
+    assert seen == [{"stub_model": "tiny.en"}]
     assert resp.get_json()["model"] == "tiny.en"
     assert pool_sizes()["tiny.en"] == 2
     assert model_pool.DIARIZER_POOL.qsize() == 1
