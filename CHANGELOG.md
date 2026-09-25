@@ -40,6 +40,12 @@
   the default model and are unchanged for a single-model deployment. With `STT_TOKENS`
   set, the model list is only included for a request carrying a valid token: it is
   configuration, like `/api/models`, and health itself stays open.
+- **A model select in the web UI.** With several models loaded, TRANSCRIBE offers the
+  selectable rows of `GET /api/models` beside the mode and the language, for the FILE and
+  DEVICE sources alike: FILE sends it as the `model` form field, DEVICE in the stream's
+  start message. The language list is the chosen model's own, the choice is remembered in
+  the browser, and the line above a transcript names the model that produced it. The
+  MODELS screen keys its rows by model id, so two Whisper models no longer collide.
 - **`model` in the `/api/stream` start message.** A live session names one of the loaded
   models the way `/api/stt` does, and every phrase borrows an instance from that model's
   pool; without it the default model serves. The language is checked against the chosen
