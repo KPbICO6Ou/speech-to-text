@@ -185,3 +185,13 @@ def test_one_broken_model_does_not_hide_the_others(multi_client, monkeypatch, st
     assert "tiny.en" not in rows
     assert {"small.en-stub", "nvidia/parakeet-tdt-0.6b-v3"} <= set(rows)
     assert "describe exploded" not in resp.get_data(as_text=True)
+
+
+def test_a_path_entry_never_reaches_the_catalogue(client, monkeypatch):
+    """A file-path entry is listed under its basename; the host directory appears nowhere."""
+    monkeypatch.setattr(config, "STT_MODELS", config.parse_model_list("whisper:/opt/models/Custom.pt@1"))
+    monkeypatch.setattr(model_pool, "MODEL_POOLS", {"Custom": queue.Queue()})
+    resp = client.get("/api/models")
+    row = rows_by_id(resp.get_json())["Custom"]
+    assert row["model"] == "Custom"
+    assert "/opt/models" not in resp.get_data(as_text=True)

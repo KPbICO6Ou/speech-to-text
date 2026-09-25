@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """stt_client.py: the --model and --language options and the form fields it sends."""
 
+import pytest
+
 import stt_client
 
 
@@ -25,3 +27,34 @@ def test_list_needs_no_files():
 def test_empty_options_are_not_sent():
     """Only what the user gave goes into the form, so the server default applies otherwise."""
     assert stt_client.build_form_fields(None, "") == {}
+    assert stt_client.build_form_fields("turbo", "ru") == {"model": "turbo", "language": "ru"}
+
+
+@pytest.mark.parametrize(
+    ("model", "language", "expected"),
+    [("turbo", "ru", {"model": "turbo", "language": "ru"}), (None, None, {})],
+)
+def test_transcribe_file_posts_the_chosen_model_and_language(tmp_path, monkeypatch, model, language, expected):
+    """--model and --language reach the request as form fields, and nothing is sent without them."""
+    sent = {}
+
+    class FakeResponse:
+        """Just enough of requests.Response for transcribe_file."""
+
+        def raise_for_status(self):
+            """A successful answer raises nothing."""
+
+        def json(self):
+            """The decoded body."""
+            return {"text": "ok"}
+
+    def fake_post(url, **kwargs):
+        """Record what would have been posted."""
+        sent.update(kwargs)
+        return FakeResponse()
+
+    audio_path = tmp_path / "a.wav"
+    audio_path.write_bytes(b"RIFF")
+    monkeypatch.setattr(stt_client.requests, "post", fake_post)
+    assert stt_client.transcribe_file(str(audio_path), model=model, language=language) == {"text": "ok"}
+    assert sent["data"] == expected
