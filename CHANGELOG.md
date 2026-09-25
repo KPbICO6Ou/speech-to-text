@@ -26,6 +26,10 @@
   `pool_size` and `available`, and the body gains `default_model`. A transcriber with
   nothing loaded keeps its single row, with `selectable: false`. `default` is still the
   default model's backend.
+- **`stt_client.py --model NAME --language CODE`.** Both flags accept `--flag VALUE` and
+  `--flag=VALUE` and are sent as form fields only when given; each result line shows the
+  model and language the server used, and `--list` prints one line per model with its
+  selectability and pool.
 - **`GET /api/health` reports every pool.** `default_model` and `models` (per id: backend,
   pool size, available) join the top-level `pool_size` and `available`, which now describe
   the default model and are unchanged for a single-model deployment.
