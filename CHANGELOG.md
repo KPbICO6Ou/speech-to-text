@@ -45,7 +45,8 @@
   DEVICE sources alike: FILE sends it as the `model` form field, DEVICE in the stream's
   start message. The language list is the chosen model's own, the choice is remembered in
   the browser, and the line above a transcript names the model that produced it. The
-  MODELS screen keys its rows by model id, so two Whisper models no longer collide.
+  MODELS screen keys its rows by model id, so two Whisper models no longer collide. A
+  server with one model shows no select and gets no `model`, exactly as before.
 - **`model` in the `/api/stream` start message.** A live session names one of the loaded
   models the way `/api/stt` does, and every phrase borrows an instance from that model's
   pool; without it the default model serves. The language is checked against the chosen

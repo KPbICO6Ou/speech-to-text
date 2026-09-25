@@ -19,13 +19,13 @@
                :compact="!!result" @result="showResult">
       <template #options="{ busy }">
         <!-- The model, among the ones the server loaded at startup. The empty
-             choice sends none, so the server's default serves; a server that
-             lists no selectable model (one from before per-request models)
-             gets no select at all. -->
-        <div style="margin-right: 0.25rem" v-if="selectableRows.length">
-          <div class="input-group input-group-sm" :title="modelTitle">
+             choice sends none, so the server's default serves. A server with
+             one model, or one from before per-request models that lists no
+             selectable row, gets no select at all and looks as it always did. -->
+        <div style="margin-right: 0.25rem" v-if="hasModelChoice">
+          <div class="input-group input-group-sm" title="The model that transcribes, among the ones the server loaded">
             <select class="form-select form-select-sm" style="width: 220px" aria-label="Model"
-                    v-model="modelChoice" :disabled="busy || selectableRows.length < 2">
+                    v-model="modelChoice" :disabled="busy">
               <option value="" title="Sends no model; the server uses its default">{{ defaultModelLabel }}</option>
               <option v-for="row in selectableRows" :key="row.id" :value="row.id" :title="row.backend + ' ' + row.id">
                 {{ row.id }}
@@ -176,9 +176,9 @@ module.exports = {
       return this.selectableRows.filter(function (row) { return row.id === wanted; })[0] || this.defaultRow;
     },
 
-    modelTitle: function () {
-      if (this.selectableRows.length < 2) return 'The only model this server loaded';
-      return 'The model that transcribes, among the ones the server loaded';
+    /* Whether there is a model to choose at all: two selectable rows or more. */
+    hasModelChoice: function () {
+      return this.selectableRows.length > 1;
     },
 
     defaultModelLabel: function () {
@@ -252,11 +252,13 @@ module.exports = {
       },
     },
 
-    /* What a source sends, reconciled with what the server offers. */
+    /* What a source sends, reconciled with what the server offers. A
+       remembered model is sent only while there is a choice, so a server
+       with one model gets the requests it always got. */
     requestModel: function () {
       var wanted = this.form.model;
       var listed = this.selectableRows.some(function (row) { return row.id === wanted; });
-      return wanted && listed ? wanted : '';
+      return wanted && listed && this.hasModelChoice ? wanted : '';
     },
     requestMode: function () {
       return this.form.mode === 'speakers' && this.speakersAvailable ? 'speakers' : 'text';
