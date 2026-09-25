@@ -220,8 +220,8 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` is a websocket for **live transcription**: audio goes in as it is recorded, and each phrase comes back about a second after the speaker pauses. JSON text messages carry control, binary messages carry audio:
 
-1. The client sends `{"type": "start", "language": "ru", "diarize": true, "token": "<token>"}`. Every field but `type` is optional. `token` is how a browser authenticates, since it cannot set headers on a websocket; other clients may send `Authorization: Bearer <token>` on the handshake instead.
-2. The server answers `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "language": "ru", "diarize": true, "source": "client"}`.
+1. The client sends `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`. Every field but `type` is optional. `model` picks one of the loaded models the way `model` does on `/api/stt`, and the language is checked against that model; without it the default model serves. `token` is how a browser authenticates, since it cannot set headers on a websocket; other clients may send `Authorization: Bearer <token>` on the handshake instead.
+2. The server answers `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}`.
 3. The client sends raw PCM - signed 16-bit little-endian, mono, 16 kHz - as binary messages of any size, and `{"type": "stop"}` when it is done.
 4. The server sends a `segment` for every phrase, `progress` about once a second, and `done` before it closes:
 
@@ -263,7 +263,7 @@ python3 stt_client.py --list
 `--stream` plays one file into `/api/stream` at the speed of speech and prints each phrase as it comes back, with `--speakers` for speaker attribution:
 
 ```bash
-python3 stt_client.py --stream meeting.wav --speakers --language ru
+python3 stt_client.py --stream meeting.wav --speakers --model turbo --language ru
 ```
 
 ### Environment variables

@@ -58,3 +58,14 @@ def test_transcribe_file_posts_the_chosen_model_and_language(tmp_path, monkeypat
     monkeypatch.setattr(stt_client.requests, "post", fake_post)
     assert stt_client.transcribe_file(str(audio_path), model=model, language=language) == {"text": "ok"}
     assert sent["data"] == expected
+
+
+def test_the_stream_start_message_names_a_model_only_when_given():
+    """`--stream --model` puts the model in the start message; without it the server default serves."""
+    assert stt_client.build_start_message("ru", True, "tiny.en") == {
+        "type": "start",
+        "language": "ru",
+        "diarize": True,
+        "model": "tiny.en",
+    }
+    assert "model" not in stt_client.build_start_message(None, False)

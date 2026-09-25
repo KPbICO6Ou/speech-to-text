@@ -172,16 +172,25 @@ def log_stream_event(event: dict) -> None:
         logger.error("Stream refused: %s (request %s)", event["error"], event["request_id"])
 
 
-def stream_file(filepath: str, language: str | None, speakers: bool) -> None:
+def build_start_message(language: str | None, speakers: bool, model: str | None = None) -> dict:
+    """The stream's start message; `model` goes in only when given, so the server default applies otherwise."""
+    message = {"type": "start", "language": language, "diarize": speakers}
+    if model:
+        message["model"] = model
+    return message
+
+
+def stream_file(filepath: str, language: str | None, speakers: bool, model: str | None = None) -> None:
     """Stream one file to /api/stream as if it were live and log every segment as it comes back."""
     pcm = read_stream_pcm(filepath)
     logger.info("Streaming %s (%.1fs) to %s", filepath, len(pcm) / 2 / STREAM_SAMPLE_RATE, build_stream_url())
     with connect(build_stream_url(), additional_headers=build_headers()) as websocket:
-        websocket.send(json.dumps({"type": "start", "language": language, "diarize": speakers}))
+        websocket.send(json.dumps(build_start_message(language, speakers, model)))
         ready = json.loads(websocket.recv())
         if ready["type"] != "ready":
             log_stream_event(ready)
             return
+        logger.info("Stream ready - model %s (%s)", ready.get("model") or "-", ready.get("backend") or "-")
         sender = threading.Thread(target=send_stream_audio, args=(websocket, pcm), daemon=True)
         sender.start()
         for message in websocket:
@@ -217,7 +226,7 @@ def main():
             if args.list:
                 log_models()
             else:
-                stream_file(args.stream, args.language, args.speakers)
+                stream_file(args.stream, args.language, args.speakers, args.model)
         except Exception as exc:
             logger.error("%s: %s\n%s", type(exc).__name__, exc, traceback.format_exc())
             sys.exit(1)

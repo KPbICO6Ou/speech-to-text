@@ -193,8 +193,8 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` 是一个用于**实时转录**的 WebSocket：音频边录制边送入，每个语句会在说话人停顿约一秒后返回。JSON 文本消息承载控制信息，二进制消息承载音频：
 
-1. 客户端发送 `{"type": "start", "language": "ru", "diarize": true, "token": "<token>"}`。除 `type` 外的所有字段都是可选的。`token` 是浏览器进行身份验证的方式，因为浏览器无法在 WebSocket 上设置请求头；其他客户端也可以改为在握手时发送 `Authorization: Bearer <token>`。
-2. 服务器回应 `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "language": "ru", "diarize": true, "source": "client"}`。
+1. 客户端发送 `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`。除 `type` 外的所有字段都是可选的。`model` 与 `/api/stt` 的 `model` 一样，从已加载的模型中选择一个，语言也按该模型检查；省略时使用默认模型。`token` 是浏览器进行身份验证的方式，因为浏览器无法在 WebSocket 上设置请求头；其他客户端也可以改为在握手时发送 `Authorization: Bearer <token>`。
+2. 服务器回应 `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}`。
 3. 客户端以任意大小的二进制消息发送原始 PCM（有符号 16 位、小端序、单声道、16 kHz），完成后发送 `{"type": "stop"}`。
 4. 服务器为每个语句发送一条 `segment`，大约每秒发送一次 `progress`，并在关闭前发送 `done`：
 
@@ -236,7 +236,7 @@ python3 stt_client.py --list
 `--stream` 会以正常语速把一个文件播放到 `/api/stream`，并在每个语句返回时将其打印出来；加上 `--speakers` 可标注说话人：
 
 ```bash
-python3 stt_client.py --stream meeting.wav --speakers --language ru
+python3 stt_client.py --stream meeting.wav --speakers --model turbo --language ru
 ```
 
 ### 环境变量

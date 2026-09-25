@@ -193,8 +193,8 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` è un WebSocket per la **trascrizione in tempo reale**: l'audio entra man mano che viene registrato, e ogni frase torna circa un secondo dopo che il parlante fa una pausa. I messaggi di testo JSON trasportano il controllo, i messaggi binari trasportano l'audio:
 
-1. Il client invia `{"type": "start", "language": "ru", "diarize": true, "token": "<token>"}`. Tutti i campi tranne `type` sono opzionali. `token` è il modo in cui un browser si autentica, dato che non può impostare header su un WebSocket; gli altri client possono invece inviare `Authorization: Bearer <token>` durante l'handshake.
-2. Il server risponde `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "language": "ru", "diarize": true, "source": "client"}`.
+1. Il client invia `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`. Tutti i campi tranne `type` sono opzionali. `model` sceglie uno dei modelli caricati come fa `model` su `/api/stt`, e la lingua viene verificata rispetto a quel modello; senza di esso serve il modello predefinito. `token` è il modo in cui un browser si autentica, dato che non può impostare header su un WebSocket; gli altri client possono invece inviare `Authorization: Bearer <token>` durante l'handshake.
+2. Il server risponde `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}`.
 3. Il client invia PCM grezzo - 16 bit con segno, little-endian, mono, 16 kHz - come messaggi binari di qualsiasi dimensione, e `{"type": "stop"}` quando ha finito.
 4. Il server invia un `segment` per ogni frase, `progress` circa una volta al secondo e `done` prima di chiudere:
 
@@ -236,7 +236,7 @@ python3 stt_client.py --list
 `--stream` riproduce un file verso `/api/stream` alla velocità del parlato e stampa ogni frase man mano che torna, con `--speakers` per l'attribuzione dei parlanti:
 
 ```bash
-python3 stt_client.py --stream meeting.wav --speakers --language ru
+python3 stt_client.py --stream meeting.wav --speakers --model turbo --language ru
 ```
 
 ### Variabili d'ambiente

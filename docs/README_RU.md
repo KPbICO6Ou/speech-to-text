@@ -193,8 +193,8 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` это WebSocket для **транскрипции в реальном времени**: аудио поступает по мере записи, а каждая фраза возвращается примерно через секунду после того, как говорящий делает паузу. Управление передаётся текстовыми JSON-сообщениями, аудио передаётся бинарными сообщениями:
 
-1. Клиент отправляет `{"type": "start", "language": "ru", "diarize": true, "token": "<token>"}`. Все поля, кроме `type`, необязательны. Через `token` аутентифицируется браузер, поскольку он не может задавать заголовки у WebSocket; другие клиенты могут вместо этого отправить `Authorization: Bearer <token>` при рукопожатии.
-2. Сервер отвечает `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "language": "ru", "diarize": true, "source": "client"}`.
+1. Клиент отправляет `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`. Все поля, кроме `type`, необязательны. `model` выбирает одну из загруженных моделей так же, как `model` у `/api/stt`, и язык проверяется по этой модели; без него работает модель по умолчанию. Через `token` аутентифицируется браузер, поскольку он не может задавать заголовки у WebSocket; другие клиенты могут вместо этого отправить `Authorization: Bearer <token>` при рукопожатии.
+2. Сервер отвечает `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}`.
 3. Клиент отправляет сырой PCM - знаковый 16-битный little-endian, моно, 16 кГц - бинарными сообщениями любого размера, а по завершении `{"type": "stop"}`.
 4. Сервер отправляет `segment` на каждую фразу, `progress` примерно раз в секунду и `done` перед закрытием:
 
@@ -236,7 +236,7 @@ python3 stt_client.py --list
 `--stream` проигрывает один файл в `/api/stream` со скоростью речи и печатает каждую фразу по мере её возвращения, а `--speakers` добавляет привязку к говорящим:
 
 ```bash
-python3 stt_client.py --stream meeting.wav --speakers --language ru
+python3 stt_client.py --stream meeting.wav --speakers --model turbo --language ru
 ```
 
 ### Переменные окружения

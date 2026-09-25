@@ -193,8 +193,8 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` **लाइव ट्रांसक्रिप्शन** के लिए एक वेबसॉकेट है: ऑडियो रिकॉर्ड होते-होते भीतर जाता है, और हर वाक्यांश स्पीकर के रुकने के लगभग एक सेकंड बाद वापस आता है। JSON टेक्स्ट संदेश नियंत्रण ले जाते हैं, बाइनरी संदेश ऑडियो:
 
-1. क्लाइंट `{"type": "start", "language": "ru", "diarize": true, "token": "<token>"}` भेजता है। `type` को छोड़कर हर फ़ील्ड वैकल्पिक है। `token` वह तरीका है जिससे ब्राउज़र प्रमाणीकरण करता है, क्योंकि वह वेबसॉकेट पर हेडर सेट नहीं कर सकता; अन्य क्लाइंट इसके बजाय हैंडशेक पर `Authorization: Bearer <token>` भेज सकते हैं।
-2. सर्वर `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "language": "ru", "diarize": true, "source": "client"}` के साथ उत्तर देता है।
+1. क्लाइंट `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}` भेजता है। `type` को छोड़कर हर फ़ील्ड वैकल्पिक है। `model` लोड किए गए मॉडलों में से एक को उसी तरह चुनता है जैसे `/api/stt` पर `model` करता है, और भाषा उसी मॉडल के विरुद्ध जाँची जाती है; इसके बिना डिफ़ॉल्ट मॉडल काम करता है। `token` वह तरीका है जिससे ब्राउज़र प्रमाणीकरण करता है, क्योंकि वह वेबसॉकेट पर हेडर सेट नहीं कर सकता; अन्य क्लाइंट इसके बजाय हैंडशेक पर `Authorization: Bearer <token>` भेज सकते हैं।
+2. सर्वर `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}` के साथ उत्तर देता है।
 3. क्लाइंट कच्चा PCM - signed 16-bit, little-endian, मोनो, 16 kHz - किसी भी आकार के बाइनरी संदेशों के रूप में भेजता है, और काम पूरा होने पर `{"type": "stop"}` भेजता है।
 4. सर्वर हर वाक्यांश के लिए एक `segment`, लगभग हर सेकंड एक `progress`, और बंद करने से पहले `done` भेजता है:
 
@@ -236,7 +236,7 @@ python3 stt_client.py --list
 `--stream` एक फ़ाइल को बोलने की गति से `/api/stream` में चलाता है और हर वाक्यांश लौटते ही उसे प्रिंट करता है, स्पीकर आरोपण के लिए `--speakers` के साथ:
 
 ```bash
-python3 stt_client.py --stream meeting.wav --speakers --language ru
+python3 stt_client.py --stream meeting.wav --speakers --model turbo --language ru
 ```
 
 ### पर्यावरण चर (Environment variables)

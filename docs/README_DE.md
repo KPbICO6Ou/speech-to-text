@@ -193,8 +193,8 @@ curl -X POST localhost:5099/api/transcript -F file=@meeting.wav
 
 `/api/stream` ist ein WebSocket für **Live-Transkription**: Audio geht hinein, während es aufgenommen wird, und jede Phrase kommt etwa eine Sekunde, nachdem der Sprecher eine Pause macht, zurück. JSON-Textnachrichten tragen die Steuerung, Binärnachrichten das Audio:
 
-1. Der Client sendet `{"type": "start", "language": "ru", "diarize": true, "token": "<token>"}`. Alle Felder außer `type` sind optional. Über `token` authentifiziert sich ein Browser, da er bei einem WebSocket keine Header setzen kann; andere Clients können stattdessen beim Handshake `Authorization: Bearer <token>` senden.
-2. Der Server antwortet mit `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "language": "ru", "diarize": true, "source": "client"}`.
+1. Der Client sendet `{"type": "start", "model": "turbo", "language": "ru", "diarize": true, "token": "<token>"}`. Alle Felder außer `type` sind optional. `model` wählt eines der geladenen Modelle so, wie es `model` bei `/api/stt` tut, und die Sprache wird gegen dieses Modell geprüft; ohne das Feld arbeitet das Standardmodell. Über `token` authentifiziert sich ein Browser, da er bei einem WebSocket keine Header setzen kann; andere Clients können stattdessen beim Handshake `Authorization: Bearer <token>` senden.
+2. Der Server antwortet mit `{"type": "ready", "sample_rate": 16000, "backend": "whisper", "model": "turbo", "language": "ru", "diarize": true, "source": "client"}`.
 3. Der Client sendet rohes PCM - vorzeichenbehaftet, 16 Bit, Little-Endian, mono, 16 kHz - als Binärnachrichten beliebiger Größe und `{"type": "stop"}`, wenn er fertig ist.
 4. Der Server sendet für jede Phrase ein `segment`, etwa einmal pro Sekunde `progress` und vor dem Schließen `done`:
 
@@ -236,7 +236,7 @@ python3 stt_client.py --list
 `--stream` spielt eine Datei in Sprechgeschwindigkeit in `/api/stream` ein und gibt jede Phrase aus, sobald sie zurückkommt, mit `--speakers` für die Sprecherzuordnung:
 
 ```bash
-python3 stt_client.py --stream meeting.wav --speakers --language ru
+python3 stt_client.py --stream meeting.wav --speakers --model turbo --language ru
 ```
 
 ### Umgebungsvariablen

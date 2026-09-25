@@ -40,6 +40,12 @@
   the default model and are unchanged for a single-model deployment. With `STT_TOKENS`
   set, the model list is only included for a request carrying a valid token: it is
   configuration, like `/api/models`, and health itself stays open.
+- **`model` in the `/api/stream` start message.** A live session names one of the loaded
+  models the way `/api/stt` does, and every phrase borrows an instance from that model's
+  pool; without it the default model serves. The language is checked against the chosen
+  model, an unknown or unloaded model is one `error` message (`Invalid model` /
+  `Model not loaded`) and a close, and `ready` names the model. `stt_client.py --stream`
+  takes `--model`.
 - **Live transcription in the web UI, and from a URL.** TRANSCRIBE gets a FILE / DEVICE
   switch: DEVICE captures a microphone, a headset, a loopback source or a browser tab's sound
   and shows each phrase as a block as soon as it is transcribed. Browsers allow audio devices
@@ -145,7 +151,8 @@
   the non-detailed body.
 - **A known language outside the model's slice is a 400, not a 500.** `?language=yue` on a
   99-language checkpoint passed the check and raised inside Whisper; it is now
-  `400 Unsupported language` before any audio is decoded.
+  `400 Unsupported language` before any audio is decoded, and on `/api/stream` an
+  `Unsupported language` error before the session starts.
 - **A busy model is still `loaded` in the catalogue.** With every instance in flight the
   pool was empty and the row fell back to `installed`.
 - **The container stops cleanly.** `entrypoint.sh` ran the server under `/bin/sh -c` without
