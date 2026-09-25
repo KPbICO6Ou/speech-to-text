@@ -70,6 +70,13 @@ def test_the_token_is_checked_before_the_model(multi_client, monkeypatch):
     assert check({"model": "nope"}) == ("Unauthorized", {})
 
 
+def test_a_lone_surrogate_token_is_unauthorized(client, monkeypatch):
+    """`"\\ud800"` in the start message is refused as Unauthorized instead of crashing the handshake."""
+    monkeypatch.setattr(config, "STT_TOKENS", {"secret"})
+    start = json.loads('{"type": "start", "token": "\\ud800"}')
+    assert live.check_start({"headers": []}, start) == ("Unauthorized", {})
+
+
 def test_an_old_client_is_checked_as_before(client):
     """Without `model` only the shape of the language is checked, exactly as before model selection."""
     error, options = check({"language": "de"})

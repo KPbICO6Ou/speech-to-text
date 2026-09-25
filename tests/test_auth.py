@@ -94,3 +94,10 @@ def test_non_ascii_configured_token_matches_itself(monkeypatch):
     assert is_valid_token("caf\u00e9")
     assert not is_valid_token("cafe")
     assert not is_valid_token("")
+
+
+def test_a_lone_surrogate_token_matches_nothing(monkeypatch):
+    """A JSON string may hold a lone surrogate no encoding carries; it is an invalid token, not a crash."""
+    monkeypatch.setattr(config, "STT_TOKENS", {"secret"})
+    assert not is_valid_token("\ud800")
+    assert not is_valid_token("secret\udfff")

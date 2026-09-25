@@ -154,7 +154,9 @@
   raised `TypeError` on such a string, so such a header failed `/api/stt`
   with a 500 and, now that health reads the token for its detailed body, made the open
   `GET /api/health` fail too. Tokens are compared as UTF-8 bytes; health answers 200 with
-  the non-detailed body.
+  the non-detailed body. A `token` in the `/api/stream` start message holding a lone
+  surrogate (`"\ud800"`), which UTF-8 cannot encode, is `Unauthorized` too, instead of an
+  internal close with a traceback.
 - **A known language outside the model's slice is a 400, not a 500.** `?language=yue` on a
   99-language checkpoint passed the check and raised inside Whisper; it is now
   `400 Unsupported language` before any audio is decoded, and on `/api/stream` whose start

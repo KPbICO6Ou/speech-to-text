@@ -25,16 +25,30 @@ def read_bearer_token() -> str:
     return header[len(BEARER_PREFIX) :].strip()
 
 
+def encode_token(token: str) -> bytes | None:
+    """A token as UTF-8 bytes, or None for a str that UTF-8 cannot carry.
+
+    `surrogateescape` restores the bytes an environment value was decoded from, but it still
+    raises on a lone surrogate outside U+DC80..U+DCFF, which a JSON start message on
+    /api/stream can hold (`"\\ud800"`). Such a token matches nothing.
+    """
+    try:
+        return token.encode("utf-8", "surrogateescape")
+    except UnicodeEncodeError:
+        return None
+
+
 def is_valid_token(token: str) -> bool:
     """Compare the token against every configured one in constant time.
 
     Both sides are compared as UTF-8 bytes: hmac.compare_digest raises TypeError on a str
     with non-ASCII characters, which would turn a stray header into a 500.
     """
-    if not token:
+    token_bytes = encode_token(token) if token else None
+    if not token_bytes:
         return False
-    token_bytes = token.encode("utf-8", "surrogateescape")
-    return any(hmac.compare_digest(token_bytes, valid.encode("utf-8", "surrogateescape")) for valid in config.STT_TOKENS)
+    valid_tokens = [encode_token(valid) for valid in config.STT_TOKENS]
+    return any(hmac.compare_digest(token_bytes, valid) for valid in valid_tokens if valid is not None)
 
 
 def is_request_authorized() -> bool:
