@@ -144,6 +144,8 @@ A language may be given as a code (`ru`) or as its English name (`russian`); any
 
 Parakeet accepts only codes, not English names, and it can drop speech it is unsure of without saying so: in a mixed-language recording it may return nothing at all for the minority language.
 
+A Whisper file path whose name matches no known checkpoint, such as a fine-tune at `/models/my-large-v3-finetune.pt`, has a language list that is only guessed from that name, so a request without `model` hands it any known code, as it always did; a request that names it is still checked against the guessed list.
+
 The `400` errors for these two options are `Invalid model` (no backend knows the name), `Model not loaded` (a real model this server did not load), `Invalid language` (not a language at all) and `Unsupported language` (a real language the chosen model does not take). All four are returned before the audio is decoded.
 
 `GET /api/models` reports what this server carries, so a client does not have to guess. Each loaded model has its own row, and so does each transcriber with nothing loaded (`selectable: false`) and the diarizer. Every row brings its own language list, because the sets genuinely diverge and a merged list would be wrong for every model on its own.

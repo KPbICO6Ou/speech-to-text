@@ -117,6 +117,8 @@ curl -X POST 'localhost:5099/api/stt?model=turbo&language=en' -F file=@speech.mp
 
 Parakeet 只接受代码，不接受英文名称，而且可能在不作任何提示的情况下丢掉它没有把握的语音：在多语言混合的录音中，它可能对少数语言完全不返回任何内容。
 
+如果 Whisper 文件路径的名称与任何已知检查点都不匹配，例如放在 `/models/my-large-v3-finetune.pt` 的微调模型，它的语言列表只是根据名称推测的，因此不带 `model` 的请求会像以前一样把任何已知代码直接传给它；指定了该模型的请求仍按推测的列表检查。
+
 这两个选项的 `400` 错误是 `Invalid model`（没有任何后端认识该名称）、`Model not loaded`（真实存在但本服务器未加载的模型）、`Invalid language`（根本不是一种语言）和 `Unsupported language`（真实存在但所选模型不接受的语言）。这四种错误都在解码音频之前返回。
 
 `GET /api/models` 会报告本服务器所具备的能力，因此客户端无需猜测。每个已加载的模型都有自己的一行，没有加载任何模型的转录后端（`selectable: false`）和说话人分离器也各有一行。每一行都带有自己的语言列表，因为这些集合确实不同，合并后的列表对任何一个模型单独来看都是错误的。

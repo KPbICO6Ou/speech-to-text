@@ -62,6 +62,45 @@ def resolve_self_detected_language(language: str, spec: dict[str, Any], explicit
     return None, UNSUPPORTED_LANGUAGE
 
 
+def resolve_language_code(language: str | None, spec: dict[str, Any]) -> tuple[str | None, str | None]:
+    """Map a requested language onto the code the model's backend takes, without consulting the model's own list.
+
+    Returns (code to pass on, None), or (None, INVALID_LANGUAGE) for a value that is no language
+    at all. This is the whole check a request got before models were selectable. A backend that
+    detects the language itself has no table to check against, so its value passes unchanged.
+    """
+    if language is None:
+        return None, None
+    if language == AUTODETECT:
+        return AUTODETECT, None
+    module = transcriber_for_backend(spec["backend"])
+    if not hasattr(module, "normalize_language_code"):
+        return language, None
+    code = module.normalize_language_code(language)
+    if code is None:
+        return None, INVALID_LANGUAGE
+    return code, None
+
+
+def is_unlisted_language_forgiven(code: str, spec: dict[str, Any], languages: list[str]) -> bool:
+    """Whether a request that did not choose its model may hand this model a code outside its list.
+
+    Two cases keep the leniency every request had before models were selectable. An English-only
+    checkpoint has always been handed any known code and quietly decoded English, and the
+    response says `en`. A checkpoint whose name matches no known one (a fine-tune at
+    `/models/my-large-v3-finetune.pt`) has a list that is only a guess from that name, so the
+    code is passed on rather than refused on the guess.
+    """
+    if len(languages) == 1:
+        logger.warning("Model %s knows only %s; transcribing a %s request anyway", spec["id"], languages[0], code)
+        return True
+    known_models = transcriber_for_backend(spec["backend"]).list_known_models()
+    if spec["id"].lower() not in known_models:
+        logger.warning("Model %s is no known checkpoint, so its languages are a guess; passing %s on", spec["id"], code)
+        return True
+    return False
+
+
 def resolve_language(language: str | None, spec: dict[str, Any], explicit: bool) -> tuple[str | None, str | None]:
     """Resolve a requested language against what the chosen model actually knows.
 
@@ -70,26 +109,19 @@ def resolve_language(language: str | None, spec: dict[str, Any], explicit: bool)
     job in either direction: `zz` looks like a code and is not one, and `russian` is not a code
     but is a spelling Whisper accepts.
     """
-    if language is None:
-        return None, None
-    if language == AUTODETECT:
-        return AUTODETECT, None
     module = transcriber_for_backend(spec["backend"])
     # A backend that detects the language itself has no table to check against and no argument
     # to honour; see resolve_self_detected_language for what is still refused.
-    if not hasattr(module, "normalize_language_code"):
+    if language not in (None, AUTODETECT) and not hasattr(module, "normalize_language_code"):
         return resolve_self_detected_language(language, spec, explicit)
-    code = module.normalize_language_code(language)
-    if code is None:
-        return None, INVALID_LANGUAGE
+    code, error = resolve_language_code(language, spec)
+    if code is None or code == AUTODETECT:
+        return code, error
     # By the id, never the load path: `/models/tiny.en.pt` is tiny.en and knows English only.
     languages = module.resolve_languages(spec["id"])
     if code in languages:
         return code, None
-    if not explicit and len(languages) == 1:
-        # An English-only checkpoint has always been handed any known code and quietly decoded
-        # English; a client that never chose a model keeps that, and the response says `en`.
-        logger.warning("Model %s knows only %s; transcribing a %s request anyway", spec["id"], languages[0], code)
+    if not explicit and is_unlisted_language_forgiven(code, spec, languages):
         return code, None
     return None, UNSUPPORTED_LANGUAGE
 

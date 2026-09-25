@@ -158,7 +158,10 @@
 - **A known language outside the model's slice is a 400, not a 500.** `?language=yue` on a
   99-language checkpoint passed the check and raised inside Whisper; it is now
   `400 Unsupported language` before any audio is decoded, and on `/api/stream` an
-  `Unsupported language` error before the session starts.
+  `Unsupported language` error before the session starts. Only a checkpoint whose list is
+  certain refuses it: a file path whose name matches no known checkpoint (a fine-tune at
+  `/models/my-large-v3-finetune.pt`) still has any known code passed on when the request
+  names no model, because its list is only guessed from the name.
 - **A busy model is still `loaded` in the catalogue.** With every instance in flight the
   pool was empty and the row fell back to `installed`.
 - **The container stops cleanly.** `entrypoint.sh` ran the server under `/bin/sh -c` without

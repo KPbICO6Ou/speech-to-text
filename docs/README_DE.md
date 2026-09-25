@@ -117,6 +117,8 @@ Die Sprache kann als Code (`ru`) oder mit ihrem englischen Namen (`russian`) ang
 
 Parakeet akzeptiert nur Codes, keine englischen Namen, und es kann Sprache, bei der es unsicher ist, stillschweigend auslassen: In einer mehrsprachigen Aufnahme liefert es für die Minderheitensprache womöglich gar nichts.
 
+Ein Whisper-Dateipfad, dessen Name zu keinem bekannten Checkpoint passt, etwa ein Fine-Tune unter `/models/my-large-v3-finetune.pt`, hat eine Sprachliste, die aus diesem Namen nur geraten ist. Eine Anfrage ohne `model` reicht ihm deshalb wie bisher jeden bekannten Code weiter; eine Anfrage, die ihn nennt, wird weiterhin gegen die geratene Liste geprüft.
+
 Die `400`-Fehler dieser beiden Optionen sind `Invalid model` (kein Backend kennt den Namen), `Model not loaded` (ein echtes Modell, das dieser Server nicht geladen hat), `Invalid language` (überhaupt keine Sprache) und `Unsupported language` (eine echte Sprache, die das gewählte Modell nicht annimmt). Alle vier kommen, bevor das Audio dekodiert wird.
 
 `GET /api/models` gibt an, was dieser Server mitbringt, sodass ein Client nicht raten muss. Jedes geladene Modell hat eine eigene Zeile, ebenso jeder Transkriptor ohne geladenes Modell (`selectable: false`) und der Diarisierer. Jede Zeile bringt ihre eigene Sprachliste mit, denn die Mengen unterscheiden sich tatsächlich, und eine zusammengeführte Liste wäre für jedes Modell für sich genommen falsch.

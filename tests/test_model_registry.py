@@ -212,6 +212,22 @@ def test_a_legacy_path_model_keeps_its_full_language_list(client, monkeypatch):
     assert backends.resolve_language("de", spec, explicit=False) == ("de", None)
 
 
+def test_an_unknown_path_named_default_keeps_the_old_leniency(client, monkeypatch):
+    """A fine-tune whose name matches no checkpoint has a guessed list, so a model-less request's code passes on."""
+    monkeypatch.setattr(config, "WHISPER_MODEL", "/models/my-large-v3-finetune.pt")
+    spec = registry.get_default_spec()
+    assert spec["id"] == "my-large-v3-finetune"
+    assert backends.resolve_language("de", spec, explicit=False) == ("de", None)
+    assert backends.resolve_language("zz", spec, explicit=False) == (None, "Invalid language")
+    assert backends.resolve_language("de", spec, explicit=True) == (None, "Unsupported language")
+
+
+def test_a_known_checkpoint_still_refuses_a_code_outside_its_list(client):
+    """The default stub is a known checkpoint, so its list is certain and `de` is refused without `model` too."""
+    spec = registry.get_default_spec()
+    assert backends.resolve_language("de", spec, explicit=False) == (None, "Unsupported language")
+
+
 def test_init_fills_one_pool_per_model(client, monkeypatch):
     """Startup loads every entry into its own queue, each instance built for its own model."""
     use_models(monkeypatch, "whisper:tiny.en@2,parakeet:nvidia/parakeet-tdt-0.6b-v3@1")

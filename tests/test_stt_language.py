@@ -209,6 +209,17 @@ def test_a_legacy_path_model_accepts_what_its_checkpoint_knows(client, stt_modul
     assert resp.get_json()["model"] == "turbo"
 
 
+def test_a_path_model_of_no_known_checkpoint_passes_the_code_on(client, stt_module, monkeypatch):
+    """WHISPER_MODEL=/models/my-large-v3-finetune.pt matches no checkpoint name: `de` reaches it, as before."""
+    monkeypatch.setattr(config, "WHISPER_MODEL", "/models/my-large-v3-finetune.pt")
+    monkeypatch.setattr(model_pool, "MODEL_POOLS", {})
+    model_pool.get_model_pool("my-large-v3-finetune").put(make_model_sentinel("my-large-v3-finetune"))
+    seen = capture_language(stt_module, monkeypatch)
+    resp = client.post("/api/stt?language=de", data=make_wav(), content_type="audio/wav")
+    assert resp.status_code == 200
+    assert seen["language"] == "de"
+
+
 def test_an_explicit_english_only_path_model_refuses_another_language(client, monkeypatch):
     """`whisper:/opt/tiny.en.pt` is served as tiny.en and knows English only, like the named checkpoint."""
     monkeypatch.setattr(config, "STT_MODELS", config.parse_model_list("whisper:/opt/tiny.en.pt@1"))

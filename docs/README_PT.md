@@ -117,6 +117,8 @@ O idioma pode ser informado como código (`ru`) ou pelo seu nome em inglês (`ru
 
 O Parakeet aceita apenas códigos, não nomes em inglês, e pode omitir sem avisar a fala da qual não tem certeza: em uma gravação com vários idiomas, pode não retornar nada para o idioma minoritário.
 
+Um caminho de arquivo do Whisper cujo nome não corresponde a nenhum checkpoint conhecido, como um fine-tune em `/models/my-large-v3-finetune.pt`, tem uma lista de idiomas apenas deduzida desse nome, então uma requisição sem `model` repassa a ele qualquer código conhecido, como sempre; uma requisição que o nomeia continua sendo verificada contra a lista deduzida.
+
 Os erros `400` dessas duas opções são `Invalid model` (nenhum backend conhece o nome), `Model not loaded` (um modelo real que este servidor não carregou), `Invalid language` (não é um idioma) e `Unsupported language` (um idioma real que o modelo escolhido não aceita). Os quatro são retornados antes de o áudio ser decodificado.
 
 O `GET /api/models` informa o que este servidor oferece, para que um cliente não precise adivinhar. Cada modelo carregado tem sua própria linha, assim como cada transcritor sem nada carregado (`selectable: false`) e o diarizador. Cada linha traz sua própria lista de idiomas, porque os conjuntos realmente divergem e uma lista combinada estaria errada para cada modelo isoladamente.
